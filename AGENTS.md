@@ -144,6 +144,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 - `refactor:` 代码重构
 - `test:` 测试相关
 
+## SEO 配置
+
+项目已实现完整的 SEO 最佳实践：
+
+### 基础 Meta 标签
+- `<title>`: 页面标题
+- `<meta name="description">`: 页面描述
+- `<meta name="keywords">`: 关键词（包含 synonym, thesaurus, word lookup, antonym, dictionary, vocabulary, language learning 等）
+- `<meta name="robots" content="index, follow">`: 爬虫指令
+- `<link rel="canonical">`: 规范 URL
+
+### Open Graph（社交分享）
+- `og:type`, `og:url`, `og:title`, `og:description`
+- `og:image` 包含尺寸声明（1200x630）
+
+### Twitter Card
+- `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
+
+### 结构化数据（JSON-LD）
+在 `index.html` 中包含 Schema.org WebApplication 标记：
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Syno-Eager",
+  "applicationCategory": "EducationalApplication",
+  "offers": { "price": "0" }
+}
+```
+
+### 站点地图和爬虫
+- `public/robots.txt`: 允许所有爬虫，指向 sitemap
+- `public/sitemap.xml`: 包含主页 URL、更新频率和优先级
+
+### PWA 和性能
+- `manifest.json`: Web App Manifest
+- 字体 preload 和 DNS preconnect
+- 自托管核心字体减少外部请求
+
 ## 注意事项
 
 1. **不要**修改 `src/components/ui/` 中的 shadcn 基础组件
@@ -151,6 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 3. **始终**在提交前运行 `pnpm lint` 和 `pnpm test`
 4. **优先**使用现有的工具函数和组件
 5. **保持**组件的单一职责原则
+6. **更新 SEO**：修改页面内容时同步更新 `index.html` 中的 meta 标签和结构化数据
 
 ## OpenSpec 集成
 
