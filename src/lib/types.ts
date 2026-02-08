@@ -2,8 +2,14 @@ import { z } from "zod";
 
 export const MeaningSchema = z.object({
   definition: z.string(),
-  example: z.string().optional(), // AI might miss it occasionally, safer to be optional but we prompt for it
-  synonyms: z.array(z.string()),
+  example: z.object({
+    en: z.string(),
+    zh: z.string().optional(),
+  }).optional(),
+  synonyms: z.array(z.object({
+    en: z.string(),
+    zh: z.string().optional(),
+  })),
 });
 
 export const ItemSchema = z.object({

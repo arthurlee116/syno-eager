@@ -127,9 +127,9 @@ export default async function handler(
 1. Output strictly valid JSON.
 2. Structure the JSON exactly as requested.
 3. Include EVERY possible definition (common, rare, archaic, technical).
-4. For EACH definition, provide a unique example sentence.
-5. For EACH definition, provide precise synonyms.
-6. Language: English -> English.
+4. For EACH definition, provide a unique example sentence with Chinese translation.
+5. For EACH definition, provide precise synonyms with Chinese translations.
+6. Language: English -> English + Chinese (Simplified).
 7. Do not wrap in Markdown code blocks, just raw JSON.
 8. Schema:
 {
@@ -141,13 +141,23 @@ export default async function handler(
       "meanings": [
         {
           "definition": "string",
-          "example": "string",
-          "synonyms": ["string"]
+          "example": {
+            "en": "string",
+            "zh": "string"
+          },
+          "synonyms": [
+            {
+              "en": "string",
+              "zh": "string"
+            }
+          ]
         }
       ]
     }
   ]
-}`
+}
+9. Provide natural, contextually appropriate Chinese translations.
+10. If a Chinese translation cannot be determined, omit the "zh" field for that item.`
         },
         {
           role: "user",

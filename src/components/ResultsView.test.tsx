@@ -11,8 +11,15 @@ const mockData: SynonymResponse = {
       meanings: [
         {
           definition: "The occurrence of events by chance in a happy way.",
-          example: "It was pure serendipity that we met.",
-          synonyms: ["chance", "fate", "luck"]
+          example: {
+            en: "It was pure serendipity that we met.",
+            zh: "我们能相遇纯属偶然。"
+          },
+          synonyms: [
+            { en: "chance", zh: "机会" },
+            { en: "fate", zh: "命运" },
+            { en: "luck", zh: "运气" }
+          ]
         }
       ]
     },
@@ -21,7 +28,9 @@ const mockData: SynonymResponse = {
         meanings: [
             {
                 definition: "To serendipity (fake verb).",
-                example: "I serendipitied my way there.",
+                example: {
+                  en: "I serendipitied my way there."
+                },
                 synonyms: []
             }
         ]
@@ -62,10 +71,12 @@ describe('ResultsView', () => {
     expect(screen.getByText('"It was pure serendipity that we met."')).toBeInTheDocument();
   });
 
-  it('renders synonyms', () => {
+  it('renders synonyms with Chinese translations', () => {
     render(<ResultsView data={mockData} />);
     expect(screen.getByText("chance")).toBeInTheDocument();
+    expect(screen.getByText("机会")).toBeInTheDocument();
     expect(screen.getByText("luck")).toBeInTheDocument();
+    expect(screen.getByText("运气")).toBeInTheDocument();
   });
   
   it('switches tabs', () => {
