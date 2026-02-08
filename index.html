@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" href="/logo.png" />
+  <link rel="icon" type="image/webp" href="/logo.webp" />
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#FF4500" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -24,20 +24,22 @@
   <meta property="og:title" content="Syno-Eager - Synonym Lookup Tool" />
   <meta property="og:description"
     content="A fast and intuitive synonym lookup tool to help you find the perfect words for your writing." />
-  <meta property="og:image" content="https://synm.vercel.app/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
+  <meta property="og:image" content="https://synm.vercel.app/og-image.webp" />
+  <meta property="og:image:type" content="image/webp" />
+  <meta property="og:image:width" content="640" />
+  <meta property="og:image:height" content="640" />
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Syno-Eager - Synonym Lookup Tool" />
   <meta name="twitter:description"
     content="A fast and intuitive synonym lookup tool to help you find the perfect words for your writing." />
-  <meta name="twitter:image" content="https://synm.vercel.app/og-image.png" />
+  <meta name="twitter:image" content="https://synm.vercel.app/og-image.webp" />
+  <!-- Preload critical fonts -->
   <link rel="preload" href="/fonts/Satoshi-Regular.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="preload" href="/fonts/ClashDisplay-Semibold.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preload" href="/fonts/NotoSansSC-Regular.woff2" as="font" type="font/woff2" crossorigin />
+  <!-- Local fonts stylesheet -->
+  <link rel="stylesheet" href="/fonts/noto-sans-sc.css" />
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
