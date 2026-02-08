@@ -1,21 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const STORAGE_KEY = 'syno_recent_searches';
 const MAX_HISTORY = 10;
 
 export function useRecentSearches() {
-  const [history, setHistory] = useState<string[]>([]);
-
-  useEffect(() => {
+  const [history, setHistory] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        setHistory(JSON.parse(stored));
+        return JSON.parse(stored);
       } catch (e) {
         console.error("Failed to parse history", e);
       }
     }
-  }, []);
+    return [];
+  });
 
   const addSearch = (word: string) => {
     const lowerWord = word.toLowerCase().trim();

@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import { ProxyAgent } from 'undici';
 import { jsonrepair } from 'jsonrepair';
-import { SynonymResponseSchema } from '../src/lib/types';
+import { SynonymResponseSchema } from '../src/lib/types.js';
 
 function extractFirstJsonObject(raw: string): string | null {
   // GLM 4.7 is a reasoning-capable model; some providers may prepend/append
@@ -96,7 +96,7 @@ export default async function handler(
     const openai = new OpenAI({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
-      fetchOptions: dispatcher ? ({ dispatcher } as unknown as RequestInit) : undefined,
+      fetchOptions: dispatcher ? ({ dispatcher } as Record<string, unknown>) : undefined,
       defaultHeaders: {
         'HTTP-Referer': referer,
         'X-Title': title,
@@ -170,10 +170,10 @@ export default async function handler(
 
     const typedCreateParams = createParams as unknown as Parameters<typeof openai.chat.completions.create>[0];
 
-    const completion = await openai.chat.completions.create(typedCreateParams);
+    const completion = await openai.chat.completions.create(typedCreateParams) as OpenAI.Chat.Completions.ChatCompletion;
 
     const rawContent = completion.choices[0]?.message?.content || "";
-    
+
     // Attempt repair and parse
     let parsedData;
     try {
@@ -199,8 +199,8 @@ export default async function handler(
   } catch (error: unknown) {
     console.error("API Error:", error);
     if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) {
-       response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
-       return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
+      response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
+      return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
     }
 
     // Prefer forwarding upstream HTTP status (e.g. 402 payment_required) so the client can display

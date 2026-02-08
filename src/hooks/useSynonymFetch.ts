@@ -25,7 +25,9 @@ const fetchSynonyms = async (word: string): Promise<SynonymResponse> => {
         throw new Error(msg);
       }
       if (error.response?.status === 500) {
-        throw new Error("Failed to parse dictionary data. Please try again.");
+        const data = error.response.data as { error?: string } | undefined;
+        const msg = data?.error || "Failed to parse dictionary data. Please try again.";
+        throw new Error(msg);
       }
     }
     throw error;
@@ -40,13 +42,13 @@ export function useSynonymFetch(word: string | null) {
     staleTime: Infinity, // Data is effectively static
     gcTime: Infinity, // Keep in cache
     retry: (failureCount, error) => {
-        if (error.message.includes("Rate limit")) return false; // Don't retry rate limits automatically
-        return failureCount < 2;
+      if (error.message.includes("Rate limit")) return false; // Don't retry rate limits automatically
+      return failureCount < 2;
     },
     meta: {
-        onError: (err: Error) => {
-            toast.error(err.message);
-        }
+      onError: (err: Error) => {
+        toast.error(err.message);
+      }
     }
   });
 }

@@ -28,3 +28,12 @@ dist-ssr
 # Test artifacts
 playwright-report
 test-results
+
+openspec/
+.agent/
+.factory/
+.claude/
+.gemini/
+.opencode/
+.qwen/
+.roo/
