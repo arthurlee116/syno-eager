@@ -1,0 +1,17 @@
+{
+  "name": "Syno-Eager",
+  "short_name": "Syno-Eager",
+  "description": "Synonym lookup app",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF4500",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
