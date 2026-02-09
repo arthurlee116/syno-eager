@@ -8,7 +8,6 @@ const fetchSynonyms = async (word: string): Promise<SynonymResponse> => {
     const response = await axios.get<SynonymResponse>(`/api/lookup`, {
       params: { word },
     });
-    // Double check with Zod on client side too, just in case
     return SynonymResponseSchema.parse(response.data);
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
