@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { SynonymResponse } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +31,15 @@ export function ResultsView({ data }: ResultsViewProps) {
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
   const headerFontSize = getDynamicFontSize(data.word, isMobile);
+
+  // Pre-calculate font sizes for all definitions to optimize render loop
+  const definitionFontSizes = useMemo(() => {
+    return data.items.map(item =>
+      item.meanings.map(meaning =>
+        isMobile ? getDefinitionFontSize(meaning.definition, true) : undefined
+      )
+    );
+  }, [data.items, isMobile]);
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-12">
@@ -71,7 +81,7 @@ export function ResultsView({ data }: ResultsViewProps) {
           ))}
         </TabsList>
 
-        {data.items.map((item) => (
+        {data.items.map((item, itemIdx) => (
           <TabsContent key={item.partOfSpeech} value={item.partOfSpeech} className="focus:outline-none">
             <motion.div
               variants={container}
@@ -90,7 +100,7 @@ export function ResultsView({ data }: ResultsViewProps) {
                         <div className="space-y-3 flex-1">
                           <p
                             className="text-2xl md:text-3xl font-display font-medium text-foreground leading-snug"
-                            style={isMobile ? { fontSize: getDefinitionFontSize(meaning.definition, true) } : {}}
+                            style={isMobile ? { fontSize: definitionFontSizes[itemIdx][idx] } : {}}
                           >
                             {meaning.definition}
                           </p>
