@@ -65,6 +65,35 @@ function getProxyURL(): string | null {
   );
 }
 
+/**
+ * OpenRouter-specific parameters for chat completions.
+ * Extends the standard OpenAI Chat Completion parameters with OpenRouter extensions.
+ * @see https://openrouter.ai/docs/api-reference/parameters
+ */
+type OpenRouterChatCompletionCreateParams = OpenAI.Chat.ChatCompletionCreateParamsNonStreaming & {
+  provider?: {
+    only?: string[];
+    allow_fallbacks?: boolean;
+    order?: string[];
+  };
+};
+
+/**
+ * Type guard for API errors that have a status code.
+ */
+function isStatusError(error: unknown): error is {
+  status: number;
+  headers?: Record<string, any>;
+  error?: any
+} {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'status' in error &&
+    typeof (error as Record<string, any>).status === 'number'
+  );
+}
+
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
@@ -118,7 +147,7 @@ export default async function handler(
     });
 
     const model = process.env.OPENROUTER_MODEL || 'z-ai/glm-4.7';
-    const createParamsBase = {
+    const createParamsBase: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
       model,
       messages: [
         {
@@ -170,7 +199,7 @@ export default async function handler(
 
     // Force OpenRouter to route this request to Cerebras.
     // See: https://openrouter.ai/docs/guides/routing/provider-selection
-    const createParams = {
+    const createParams: OpenRouterChatCompletionCreateParams = {
       ...createParamsBase,
       provider: {
         only: ['cerebras'],
@@ -178,9 +207,7 @@ export default async function handler(
       },
     };
 
-    const typedCreateParams = createParams as unknown as Parameters<typeof openai.chat.completions.create>[0];
-
-    const completion = await openai.chat.completions.create(typedCreateParams) as OpenAI.Chat.Completions.ChatCompletion;
+    const completion = await openai.chat.completions.create(createParams);
 
     const rawContent = completion.choices[0]?.message?.content || "";
 
@@ -208,16 +235,15 @@ export default async function handler(
 
   } catch (error: unknown) {
     console.error("API Error:", error);
-    if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) {
-      response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
+    if (isStatusError(error) && error.status === 429) {
+      response.setHeader('Retry-After', error.headers?.['retry-after'] || '60');
       return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
     }
 
     // Prefer forwarding upstream HTTP status (e.g. 402 payment_required) so the client can display
     // a correct message instead of a generic "parse failed".
-    const errorObj = (typeof error === 'object' && error !== null) ? (error as Record<string, unknown>) : null;
-    const statusValue = errorObj?.status;
-    const status = typeof statusValue === 'number' ? statusValue : 500;
+    const errorObj = isStatusError(error) ? error : null;
+    const status = errorObj?.status ?? 500;
 
     let upstreamMessage: string | undefined;
     // The OpenAI SDK's APIError sometimes can't parse non-OpenAI-shaped JSON bodies.
