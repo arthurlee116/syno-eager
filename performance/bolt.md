@@ -10,18 +10,10 @@ Critical learnings from performance optimization work on Syno-Eager.
 
 **Action:** Use `matchMedia` with `change` event listener instead. It only fires when the media query result actually changes (breakpoint is crossed). Combined with `useSyncExternalStore` for SSR compatibility and concurrent rendering safety. This reduces callback invocations by ~95% during typical window resizing.
 
-**Before:**
-```typescript
-useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < breakpoint);
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-}, [breakpoint]);
-```
+---
 
-**After:**
-```typescript
-// Uses matchMedia change event + useSyncExternalStore
-// Only fires when crossing the breakpoint, not on every pixel
-```
+## 2026-02-09 - Persistent Cache for Immutable Data
+
+**Learning:** The application fetches static dictionary definitions using `useQuery` with `staleTime: Infinity` but only stores it in memory. This causes redundant API calls on page reloads, increasing latency and API costs.
+
+**Action:** Use `@tanstack/react-query-persist-client` with `createSyncStoragePersister` to persist query cache to localStorage declaratively, keeping queryFn clean.
