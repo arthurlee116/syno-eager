@@ -117,7 +117,7 @@ export default async function handler(
       },
     });
 
-    const model = process.env.OPENROUTER_MODEL || 'z-ai/glm-4.7';
+    const model = process.env.OPENROUTER_MODEL || 'stepfun/step-3.5-flash:free';
     const createParamsBase = {
       model,
       messages: [
@@ -173,7 +173,7 @@ export default async function handler(
     const createParams = {
       ...createParamsBase,
       provider: {
-        only: ['cerebras'],
+        only: ['stepfun/fp8'],
         allow_fallbacks: false,
       },
     };
