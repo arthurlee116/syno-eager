@@ -3,8 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { useMobile } from '@/hooks/useMobile';
 import { getDynamicFontSize, getDefinitionFontSize } from '@/lib/typography';
+import { useMemo } from 'react';
 
 interface ResultsViewProps {
   data: SynonymResponse;
@@ -26,10 +26,9 @@ const itemAnim = {
 };
 
 export function ResultsView({ data }: ResultsViewProps) {
-  const isMobile = useMobile();
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
-  const headerFontSize = getDynamicFontSize(data.word, isMobile);
+  const headerFontSize = useMemo(() => getDynamicFontSize(data.word), [data.word]);
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-12">
@@ -42,8 +41,8 @@ export function ResultsView({ data }: ResultsViewProps) {
       >
         <div className="flex flex-col md:flex-row md:items-baseline md:gap-6">
           <h1
-            className="text-7xl md:text-9xl font-display font-semibold tracking-tighter text-foreground leading-none"
-            style={headerFontSize ? { fontSize: headerFontSize } : {}}
+            className="text-[length:var(--header-font-size)] md:text-9xl font-display font-semibold tracking-tighter text-foreground leading-none"
+            style={{ '--header-font-size': headerFontSize } as React.CSSProperties}
           >
             {data.word}
           </h1>
@@ -89,8 +88,8 @@ export function ResultsView({ data }: ResultsViewProps) {
                         </span>
                         <div className="space-y-3 flex-1">
                           <p
-                            className="text-2xl md:text-3xl font-display font-medium text-foreground leading-snug"
-                            style={isMobile ? { fontSize: getDefinitionFontSize(meaning.definition, true) } : {}}
+                            className="text-[length:var(--def-font-size)] md:text-3xl font-display font-medium text-foreground leading-snug"
+                            style={{ '--def-font-size': getDefinitionFontSize(meaning.definition) } as React.CSSProperties}
                           >
                             {meaning.definition}
                           </p>

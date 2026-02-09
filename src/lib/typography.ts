@@ -2,9 +2,7 @@
  * Calculates a dynamic font size based on word length to prevent overflow on mobile.
  * Optimized for a ~375px viewport (approx 21rem/340px usable width).
  */
-export function getDynamicFontSize(word: string, isMobile: boolean) {
-    if (!isMobile) return undefined;
-
+export function getDynamicFontSize(word: string) {
     const length = word.length;
     // text-7xl is 4.5rem. We use this for short words.
     if (length <= 8) return '4.5rem';
@@ -24,9 +22,7 @@ export function getDynamicFontSize(word: string, isMobile: boolean) {
 /**
  * Similar scaling for definitions to ensure long technical words don't break layout.
  */
-export function getDefinitionFontSize(text: string, isMobile: boolean) {
-    if (!isMobile) return undefined;
-
+export function getDefinitionFontSize(text: string) {
     // text-2xl is 1.5rem. Usable width is ~21rem.
     // We check for the longest word in the definition.
     const words = text.split(/\s+/);
