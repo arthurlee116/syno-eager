@@ -1,4 +1,4 @@
-import { useSyncExternalStore, useState } from 'react';
+import { useSyncExternalStore, useCallback } from 'react';
 
 /**
  * Custom hook to detect mobile viewport.
@@ -10,34 +10,24 @@ import { useSyncExternalStore, useState } from 'react';
  *
  * Uses useSyncExternalStore for SSR compatibility and concurrent rendering safety.
  */
-function subscribe(callback: () => void, breakpoint: number) {
+export function useMobile(breakpoint: number = 768) {
+  const subscribe = useCallback((callback: () => void) => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return () => {};
+    }
     const mediaQuery = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
     mediaQuery.addEventListener('change', callback);
     return () => mediaQuery.removeEventListener('change', callback);
-}
+  }, [breakpoint]);
 
-function getSnapshot(breakpoint: number) {
+  const getSnapshot = useCallback(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return false;
+    }
     return window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches;
-}
+  }, [breakpoint]);
 
-function getServerSnapshot() {
-    return false; // Default to desktop on server
-}
+  const getServerSnapshot = () => false;
 
-export function useMobile(breakpoint: number = 768) {
-    // useSyncExternalStore requires stable subscribe function
-    // We create a stable version that captures the breakpoint
-    const [stableSubscribe] = useState(() =>
-        (callback: () => void) => subscribe(callback, breakpoint)
-    );
-    
-    const [stableGetSnapshot] = useState(() =>
-        () => getSnapshot(breakpoint)
-    );
-
-    return useSyncExternalStore(
-        stableSubscribe,
-        stableGetSnapshot,
-        getServerSnapshot
-    );
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
