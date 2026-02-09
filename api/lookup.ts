@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { ProxyAgent } from 'undici';
 import { jsonrepair } from 'jsonrepair';
 import { SynonymResponseSchema } from '../src/lib/types.js';
+import { redactSensitiveInfo } from '../src/lib/redact.js';
 
 function extractFirstJsonObject(raw: string): string | null {
   // GLM 4.7 is a reasoning-capable model; some providers may prepend/append
@@ -207,7 +208,9 @@ export default async function handler(
     return response.status(200).json(validatedData);
 
   } catch (error: unknown) {
-    console.error("API Error:", error);
+    const redactedError = redactSensitiveInfo(error);
+    console.error("API Error:", redactedError);
+
     if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) {
       response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
       return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
@@ -249,11 +252,11 @@ export default async function handler(
       error:
         status === 402
           ? 'Cerebras billing/quota required. Please add billing or credits in your Cerebras dashboard.'
-          : (error as Error).message || 'Upstream API Error',
+          : (redactedError.message || 'Upstream API Error'),
       upstream_status: status,
-      upstream_message: upstreamMessage,
-      upstream_body: capturedUpstreamErrorBody || undefined,
-      details: String(error),
+      upstream_message: redactSensitiveInfo(upstreamMessage),
+      upstream_body: redactSensitiveInfo(capturedUpstreamErrorBody) || undefined,
+      details: redactSensitiveInfo(String(error)),
     });
   }
 }
