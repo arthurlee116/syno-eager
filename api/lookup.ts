@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { z } from 'zod';
 import OpenAI from 'openai';
 import { ProxyAgent } from 'undici';
 import { jsonrepair } from 'jsonrepair';
@@ -65,6 +66,12 @@ function getProxyURL(): string | null {
   );
 }
 
+const LookupQuerySchema = z.object({
+  word: z.string()
+    .min(1, 'Word parameter is required')
+    .max(100, 'Word parameter is too long (max 100 characters)')
+});
+
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
@@ -76,11 +83,15 @@ export default async function handler(
     return response.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { word } = request.query;
+  const validation = LookupQuerySchema.safeParse(request.query);
 
-  if (!word || typeof word !== 'string') {
-    return response.status(400).json({ error: 'Word parameter is required' });
+  if (!validation.success) {
+    return response.status(400).json({
+      error: validation.error.errors[0]?.message || 'Invalid word parameter'
+    });
   }
+
+  const { word } = validation.data;
 
   if (!process.env.OPENROUTER_API_KEY) {
     return response.status(500).json({ error: 'Server misconfiguration: Missing API Key' });
