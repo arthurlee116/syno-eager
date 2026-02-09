@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { useSyncExternalStore, useState } from 'react';
 
 /**
  * Custom hook to detect mobile viewport.
