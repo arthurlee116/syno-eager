@@ -3,37 +3,12 @@ import axios from 'axios';
 import { type SynonymResponse, SynonymResponseSchema } from '@/lib/types';
 import { toast } from 'sonner';
 
-const CACHE_PREFIX = 'syno_cache_';
-
 const fetchSynonyms = async (word: string): Promise<SynonymResponse> => {
-  const cacheKey = `${CACHE_PREFIX}${word.toLowerCase().trim()}`;
-
-  // ⚡ Bolt: Check localStorage for cached result to avoid API call
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      return SynonymResponseSchema.parse(parsed);
-    }
-  } catch (e) {
-    console.warn("Cache read failed", e);
-  }
-
   try {
     const response = await axios.get<SynonymResponse>(`/api/lookup`, {
       params: { word },
     });
-    // Double check with Zod on client side too, just in case
-    const data = SynonymResponseSchema.parse(response.data);
-
-    // ⚡ Bolt: Save to localStorage for future lookups
-    try {
-      localStorage.setItem(cacheKey, JSON.stringify(data));
-    } catch (e) {
-      console.warn("Cache write failed (quota exceeded?)", e);
-    }
-
-    return data;
+    return SynonymResponseSchema.parse(response.data);
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       if (error.response?.status === 429) {
