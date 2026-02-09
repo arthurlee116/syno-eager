@@ -65,6 +65,14 @@ function getProxyURL(): string | null {
   );
 }
 
+// Pre-instantiate the ProxyAgent and configurations to enable connection pooling
+// and reduce request latency across warm invocations.
+const proxyURL = getProxyURL();
+const dispatcher = proxyURL ? new ProxyAgent(proxyURL) : undefined;
+const referer = process.env.OPENROUTER_SITE_URL || process.env.VERCEL_URL || 'http://localhost';
+const title = process.env.OPENROUTER_APP_NAME || 'Syno-Eager';
+const model = process.env.OPENROUTER_MODEL || 'z-ai/glm-4.7';
+
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
@@ -87,12 +95,6 @@ export default async function handler(
   }
 
   try {
-    const proxyURL = getProxyURL();
-    const dispatcher = proxyURL ? new ProxyAgent(proxyURL) : undefined;
-
-    const referer = process.env.OPENROUTER_SITE_URL || process.env.VERCEL_URL || 'http://localhost';
-    const title = process.env.OPENROUTER_APP_NAME || 'Syno-Eager';
-
     const openai = new OpenAI({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
@@ -116,8 +118,6 @@ export default async function handler(
         return res;
       },
     });
-
-    const model = process.env.OPENROUTER_MODEL || 'z-ai/glm-4.7';
     const createParamsBase = {
       model,
       messages: [
