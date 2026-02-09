@@ -189,7 +189,7 @@ export default async function handler(
     try {
       parsedData = JSON.parse(rawContent);
     } catch {
-      console.log("JSON Parse failed, attempting repair/extraction...");
+      console.warn("JSON Parse failed, attempting repair/extraction...");
       try {
         const unfenced = stripCodeFences(rawContent);
         const extracted = extractFirstJsonObject(unfenced) ?? unfenced;
