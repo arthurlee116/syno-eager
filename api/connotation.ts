@@ -116,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     });
 
-    const model = process.env.OPENROUTER_MODEL || "stepfun/step-3.5-flash:free";
+    const model = process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
 
     const response_format = {
       type: "json_schema",
@@ -220,11 +220,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       ],
       temperature: 0,
-      provider: {
-        only: ["stepfun/fp8"],
-        allow_fallbacks: false,
-        require_parameters: true,
-      },
     })) as OpenAI.Chat.Completions.ChatCompletion;
 
     const rawContent = completion.choices[0]?.message?.content || "";

@@ -117,7 +117,7 @@ export default async function handler(
       },
     });
 
-    const model = process.env.OPENROUTER_MODEL || 'stepfun/step-3.5-flash:free';
+    const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
 
     const response_format = {
       type: 'json_schema',
@@ -230,20 +230,11 @@ export default async function handler(
       temperature: 0,
     };
 
-    // Force OpenRouter to route this request to Cerebras.
-    // See: https://openrouter.ai/docs/guides/routing/provider-selection
-    const createParams = {
-      ...createParamsBase,
-      provider: {
-        only: ['stepfun/fp8'],
-        allow_fallbacks: false,
-        require_parameters: true,
-      },
-    };
+    const typedCreateParams = createParamsBase as unknown as Parameters<typeof openai.chat.completions.create>[0];
 
-    const typedCreateParams = createParams as unknown as Parameters<typeof openai.chat.completions.create>[0];
-
-    const completion = await openai.chat.completions.create(typedCreateParams) as OpenAI.Chat.Completions.ChatCompletion;
+    const completion = await openai.chat.completions.create(
+      typedCreateParams
+    ) as OpenAI.Chat.Completions.ChatCompletion;
 
     const rawContent = completion.choices[0]?.message?.content || "";
 

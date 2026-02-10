@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "mkdir -p test-results playwright-report && eslint .",
     "preview": "vite preview",
     "test": "pnpm -s test:unit && pnpm -s test:e2e",
     "test:unit": "vitest run",
