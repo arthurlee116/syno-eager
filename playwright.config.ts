@@ -37,7 +37,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run dev -- --host ${HOST} --port ${PORT} --strictPort`,
+    command: `pnpm -s exec vite --host ${HOST} --port ${PORT} --strictPort`,
     url: baseURL,
     // Always start the dev server for e2e tests to avoid false positives from proxy probes.
     reuseExistingServer: false,

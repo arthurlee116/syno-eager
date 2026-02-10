@@ -28,15 +28,26 @@ export function useMobile(breakpoint: number = 768) {
     // Sync once in case the viewport changed between render and effect.
     onChange();
 
+    const mqlAny = mql as unknown as {
+      addEventListener?: (type: 'change', listener: () => void) => void;
+      removeEventListener?: (type: 'change', listener: () => void) => void;
+      addListener?: (listener: () => void) => void;
+      removeListener?: (listener: () => void) => void;
+    };
+
     // Modern browsers.
-    if ('addEventListener' in mql) {
-      mql.addEventListener('change', onChange);
-      return () => mql.removeEventListener('change', onChange);
+    if (typeof mqlAny.addEventListener === 'function') {
+      mqlAny.addEventListener('change', onChange);
+      return () => mqlAny.removeEventListener?.('change', onChange);
     }
 
-    // Safari < 14.
-    mql.addListener(onChange);
-    return () => mql.removeListener(onChange);
+    // Safari < 14 (deprecated API).
+    if (typeof mqlAny.addListener === 'function') {
+      mqlAny.addListener(onChange);
+      return () => mqlAny.removeListener?.(onChange);
+    }
+
+    return;
   }, [query]);
 
   return isMobile;
