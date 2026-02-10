@@ -118,19 +118,81 @@ export default async function handler(
     });
 
     const model = process.env.OPENROUTER_MODEL || 'stepfun/step-3.5-flash:free';
+
+    const response_format = {
+      type: 'json_schema',
+      json_schema: {
+        name: 'lookup',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            word: { type: 'string' },
+            phonetics: { type: 'array', items: { type: 'string' } },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  partOfSpeech: { type: 'string' },
+                  meanings: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      additionalProperties: false,
+                      properties: {
+                        definition: { type: 'string' },
+                        example: {
+                          type: 'object',
+                          additionalProperties: false,
+                          properties: {
+                            en: { type: 'string' },
+                            zh: { type: 'string' },
+                          },
+                          required: ['en'],
+                        },
+                        synonyms: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                              en: { type: 'string' },
+                              zh: { type: 'string' },
+                            },
+                            required: ['en'],
+                          },
+                        },
+                      },
+                      required: ['definition', 'synonyms'],
+                    },
+                  },
+                },
+                required: ['partOfSpeech', 'meanings'],
+              },
+            },
+          },
+          required: ['word', 'items'],
+        },
+      },
+    };
+
     const createParamsBase = {
       model,
+      // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
+      // See: https://openrouter.ai/docs/guides/features/structured-outputs
+      response_format: response_format as unknown,
       messages: [
         {
           role: "system",
           content: `You are a meticulous lexicographer. The user will provide a word. You must provide an EXHAUSTIVE, comprehensive analysis of this word.
-1. Output strictly valid JSON.
-2. Structure the JSON exactly as requested.
+1. Structure the JSON exactly as requested.
 3. Include EVERY possible definition (common, rare, archaic, technical).
 4. For EACH definition, provide a unique example sentence with Chinese translation.
 5. For EACH definition, provide precise synonyms with Chinese translations.
 6. Language: English -> English + Chinese (Simplified).
-7. Do not wrap in Markdown code blocks, just raw JSON.
 8. Schema:
 {
   "word": "string",
@@ -175,6 +237,7 @@ export default async function handler(
       provider: {
         only: ['stepfun/fp8'],
         allow_fallbacks: false,
+        require_parameters: true,
       },
     };
 

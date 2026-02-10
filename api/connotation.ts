@@ -118,21 +118,86 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const model = process.env.OPENROUTER_MODEL || "stepfun/step-3.5-flash:free";
 
-    const schemaHint = `{
-  "headword": "string",
-  "synonym": "string",
-  "partOfSpeech": "string",
-  "definition": "string",
-  "polarity": "positive|negative|neutral|mixed",
-  "register": "formal|neutral|informal",
-  "toneTags": [{"en": "string", "zh": "string"}],
-  "usageNote": {"en": "string", "zh": "string"},
-  "cautions": [{"en": "string", "zh": "string"}],
-  "example": {"en": "string", "zh": "string"}
-}`;
+    const response_format = {
+      type: "json_schema",
+      json_schema: {
+        name: "connotation",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            headword: { type: "string" },
+            synonym: { type: "string" },
+            partOfSpeech: { type: "string" },
+            definition: { type: "string" },
+            polarity: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
+            register: { type: "string", enum: ["formal", "neutral", "informal"] },
+            toneTags: {
+              type: "array",
+              minItems: 1,
+              maxItems: 6,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  en: { type: "string" },
+                  zh: { type: "string" },
+                },
+                required: ["en"],
+              },
+            },
+            usageNote: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                en: { type: "string" },
+                zh: { type: "string" },
+              },
+              required: ["en"],
+            },
+            cautions: {
+              type: "array",
+              maxItems: 4,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  en: { type: "string" },
+                  zh: { type: "string" },
+                },
+                required: ["en"],
+              },
+            },
+            example: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                en: { type: "string" },
+                zh: { type: "string" },
+              },
+              required: ["en"],
+            },
+          },
+          required: [
+            "headword",
+            "synonym",
+            "partOfSpeech",
+            "definition",
+            "polarity",
+            "register",
+            "toneTags",
+            "usageNote",
+          ],
+        },
+      },
+    };
 
     const completion = (await openai.chat.completions.create({
       model,
+      // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
+      // See: https://openrouter.ai/docs/guides/features/structured-outputs
+      response_format: response_format as unknown,
       messages: [
         {
           role: "system",
@@ -140,11 +205,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             `You are a bilingual (English + Simplified Chinese) writing coach and lexicographer.\n` +
             `Task: Given a headword sense and ONE candidate synonym, produce compact connotation guidance to help a writer choose the best word.\n` +
             `Rules:\n` +
-            `1) Output strictly valid JSON only. No Markdown. No extra keys.\n` +
-            `2) Keep it SHORT (UI tooltip). Prefer 1-2 sentences per field.\n` +
-            `3) Provide natural Chinese; if unsure, omit "zh" for that field.\n` +
-            `4) Return 2-5 toneTags. Return 0-3 cautions.\n` +
-            `5) Match these fields exactly:\n${schemaHint}\n`,
+            `1) Keep it SHORT (UI tooltip). Prefer 1-2 sentences per field.\n` +
+            `2) Provide natural Chinese; if unsure, omit "zh" for that field.\n` +
+            `3) Return 2-5 toneTags. Return 0-3 cautions.\n`,
         },
         {
           role: "user",
@@ -160,6 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       provider: {
         only: ["stepfun/fp8"],
         allow_fallbacks: false,
+        require_parameters: true,
       },
     })) as OpenAI.Chat.Completions.ChatCompletion;
 
@@ -237,4 +301,3 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   }
 }
-
