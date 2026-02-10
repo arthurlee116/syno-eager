@@ -212,12 +212,9 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
 
     // Reposition on viewport changes while open.
     window.addEventListener("resize", reposition);
-    // Scroll anywhere can move the trigger; use capture to catch nested scroll containers.
-    window.addEventListener("scroll", reposition, true);
 
     return () => {
       window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
     };
   }, [showPanel]);
 
@@ -366,7 +363,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
                 </button>
               </div>
             ) : data ? (
-              <div className="space-y-3">
+              <div className="space-y-3 overscroll-contain">
                 <div className="flex flex-wrap gap-2">
                   <span className={cn("text-xs font-mono px-2 py-1 border", tint.chip)}>
                     polarity: {polarityLabel.en}
@@ -432,6 +429,12 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
                     ) : null}
                   </div>
                 ) : null}
+
+                <div className="pt-2 border-t border-border/60">
+                  <div className="text-xs font-mono text-muted-foreground">
+                    Tip: Scroll inside this card. Click the synonym to pin.
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">No connotation available.</div>
