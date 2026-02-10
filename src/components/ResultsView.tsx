@@ -1,10 +1,10 @@
 import type { SynonymResponse } from '@/lib/types';
-import { Badge } from '@/components/primitives/Badge';
 import { Card, CardContent } from '@/components/primitives/Card';
 import { motion } from 'framer-motion';
 import { useMobile } from '@/hooks/useMobile';
 import { getDynamicFontSize, getDefinitionFontSize } from '@/lib/typography';
 import { useMemo, useState } from 'react';
+import { ConnotationHovercard } from '@/components/ConnotationHovercard';
 
 interface ResultsViewProps {
   data: SynonymResponse;
@@ -129,18 +129,13 @@ export function ResultsView({ data }: ResultsViewProps) {
                         {meaning.synonyms.length > 0 && (
                           <div className="pl-12 pt-2 flex flex-wrap gap-2">
                             {meaning.synonyms.map((syn, synIdx) => (
-                              <Badge
+                              <ConnotationHovercard
                                 key={`${syn.en}-${synIdx}`}
-                                variant="outline"
-                                className="text-lg px-5 py-2.5 rounded-none border-border font-sans font-medium text-muted-foreground hover:bg-primary hover:text-white hover:border-primary transition-all duration-200 cursor-default"
-                              >
-                                <span>{syn.en}</span>
-                                {syn.zh && (
-                                  <span className="ml-1.5" style={{ fontFamily: 'var(--font-sans-zh)', fontSize: '0.95em' }}>
-                                    {syn.zh}
-                                  </span>
-                                )}
-                              </Badge>
+                                headword={data.word}
+                                partOfSpeech={item.partOfSpeech}
+                                definition={meaning.definition}
+                                synonym={syn}
+                              />
                             ))}
                           </div>
                         )}
