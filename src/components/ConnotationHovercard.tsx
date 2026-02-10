@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useConnotationFetch } from "@/hooks/useConnotationFetch";
 import { useMobile } from "@/hooks/useMobile";
@@ -14,6 +14,8 @@ type ConnotationHovercardProps = {
 };
 
 const HOVER_INTENT_MS = 200;
+const PANEL_GAP_PX = 8;
+const VIEWPORT_PADDING_PX = 8;
 
 export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const { headword, partOfSpeech, definition, synonym, className } = props;
@@ -26,6 +28,9 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const [slow, setSlow] = useState(false);
   const hoverTimer = useRef<number | null>(null);
   const slowTimer = useRef<number | null>(null);
+
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const params = useMemo(
     () => ({
@@ -144,6 +149,65 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
 
   const showPanel = open;
 
+  useLayoutEffect(() => {
+    if (!showPanel || !panelRef.current || !triggerRef.current) return;
+
+    const panelEl = panelRef.current;
+    const triggerEl = triggerRef.current;
+
+    const reposition = () => {
+      // Ensure we can measure size even before final positioning.
+      panelEl.style.visibility = "hidden";
+      panelEl.style.left = "0px";
+      panelEl.style.top = "0px";
+
+      const vw = window.innerWidth || 0;
+      const vh = window.innerHeight || 0;
+
+      const t = triggerEl.getBoundingClientRect();
+      const p = panelEl.getBoundingClientRect();
+
+      // If we can't measure (jsdom / hidden), just bail gracefully.
+      if (!vw || !vh || (!p.width && !p.height)) {
+        panelEl.style.visibility = "visible";
+        return;
+      }
+
+      const roomBelow = vh - t.bottom - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
+      const roomAbove = t.top - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
+
+      const placeAbove = roomBelow < p.height && roomAbove >= p.height;
+
+      let top = placeAbove
+        ? t.top - PANEL_GAP_PX - p.height
+        : t.bottom + PANEL_GAP_PX;
+
+      // Start aligned to trigger's left edge.
+      let left = t.left;
+
+      // Clamp within viewport.
+      left = Math.max(VIEWPORT_PADDING_PX, Math.min(left, vw - p.width - VIEWPORT_PADDING_PX));
+      top = Math.max(VIEWPORT_PADDING_PX, Math.min(top, vh - p.height - VIEWPORT_PADDING_PX));
+
+      panelEl.dataset.placement = placeAbove ? "top" : "bottom";
+      panelEl.style.left = `${left}px`;
+      panelEl.style.top = `${top}px`;
+      panelEl.style.visibility = "visible";
+    };
+
+    reposition();
+
+    // Reposition on viewport changes while open.
+    window.addEventListener("resize", reposition);
+    // Scroll anywhere can move the trigger; use capture to catch nested scroll containers.
+    window.addEventListener("scroll", reposition, true);
+
+    return () => {
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [showPanel]);
+
   useEffect(() => {
     if (!open || !(isLoading || isFetching)) return;
 
@@ -166,6 +230,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
     >
       <button
         type="button"
+        ref={triggerRef}
         onMouseEnter={scheduleOpen}
         onFocus={() => setOpen(true)}
         onBlur={() => {
@@ -216,6 +281,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
           id={contentId}
           role="dialog"
           aria-label={`Connotation for ${synonym.en}`}
+          ref={panelRef}
           onMouseEnter={() => {
             // If the user arrives here during hover-intent, keep it open.
             if (!isMobile) {
@@ -224,8 +290,8 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
             }
           }}
           className={cn(
-            "absolute z-50 mt-2 w-[min(420px,90vw)]",
-            "left-0 top-full",
+            // Fixed positioning avoids being clipped near the bottom of the page.
+            "fixed z-50 w-[min(420px,90vw)]",
             "border bg-background/95 backdrop-blur-sm",
             tint.border,
             "shadow-[0_20px_60px_-30px_rgba(0,0,0,0.55)]",
@@ -265,8 +331,9 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
                 {slow ? (
                   <div className="space-y-1">
                     <div className="text-sm text-foreground">Generating connotation…</div>
+                    <div className="text-xs font-mono text-muted-foreground">Typically 2-6 seconds.</div>
                     <div className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-sans-zh)" }}>
-                      正在生成 connotation…（通常 2-6 秒；冷启动可能更久）
+                      正在生成 connotation…（通常 2-6 秒）
                     </div>
                   </div>
                 ) : null}

@@ -86,6 +86,12 @@ export function ResultsView({ data }: ResultsViewProps) {
           })}
         </div>
 
+        <div className="mb-8">
+          <p className="text-sm text-muted-foreground font-mono">
+            Tip: Hover over a synonym to see connotation notes.
+          </p>
+        </div>
+
         {data.items.map((item) => {
           if (item.partOfSpeech !== safeActiveTab) return null;
           return (
