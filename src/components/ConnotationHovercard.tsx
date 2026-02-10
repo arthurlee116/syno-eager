@@ -334,6 +334,10 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
               </button>
             </div>
 
+            <div className="text-xs font-mono text-muted-foreground">
+              Tip: Scroll inside this card. Click the synonym to pin.
+            </div>
+
             <div className="text-sm text-muted-foreground leading-snug line-clamp-3">{definition}</div>
 
             {isLoading || isFetching ? (
@@ -429,12 +433,6 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
                     ) : null}
                   </div>
                 ) : null}
-
-                <div className="pt-2 border-t border-border/60">
-                  <div className="text-xs font-mono text-muted-foreground">
-                    Tip: Scroll inside this card. Click the synonym to pin.
-                  </div>
-                </div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">No connotation available.</div>
