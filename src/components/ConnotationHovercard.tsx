@@ -21,7 +21,11 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const contentId = useId();
 
   const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
+  const [slow, setSlow] = useState(false);
   const hoverTimer = useRef<number | null>(null);
+  const slowTimer = useRef<number | null>(null);
 
   const params = useMemo(
     () => ({
@@ -83,13 +87,18 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
   useEffect(() => {
     return () => {
       if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+      if (slowTimer.current) window.clearTimeout(slowTimer.current);
     };
   }, []);
 
   const scheduleOpen = () => {
     if (isMobile) return; // mobile uses tap
     if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    hoverTimer.current = window.setTimeout(() => setOpen(true), HOVER_INTENT_MS);
+    setHintVisible(true);
+    hoverTimer.current = window.setTimeout(() => {
+      setOpen(true);
+      setHintVisible(false);
+    }, HOVER_INTENT_MS);
   };
 
   const cancelScheduledOpen = useCallback(() => {
@@ -100,6 +109,9 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const close = useCallback(() => {
     cancelScheduledOpen();
     setOpen(false);
+    setPinned(false);
+    setHintVisible(false);
+    setSlow(false);
   }, [cancelScheduledOpen]);
 
   useEffect(() => {
@@ -112,17 +124,44 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
   }, [open, isMobile, close]);
 
   const onTriggerClick = () => {
-    if (!isMobile) return;
-    setOpen((v) => !v);
+    if (isMobile) {
+      if (open) close();
+      else {
+        setOpen(true);
+        setHintVisible(false);
+      }
+      return;
+    }
+
+    // Desktop: click pins/unpins the card so the user can move the mouse and read.
+    if (pinned) close();
+    else {
+      setPinned(true);
+      setOpen(true);
+      setHintVisible(false);
+    }
   };
 
   const showPanel = open;
+
+  useEffect(() => {
+    if (!open || !(isLoading || isFetching)) return;
+
+    // If the model/provider is slow (or cold-starting), tell the user we're working.
+    if (slowTimer.current) window.clearTimeout(slowTimer.current);
+    slowTimer.current = window.setTimeout(() => setSlow(true), 1200);
+
+    return () => {
+      if (slowTimer.current) window.clearTimeout(slowTimer.current);
+      slowTimer.current = null;
+    };
+  }, [open, isLoading, isFetching]);
 
   return (
     <span
       className={cn("relative inline-block", className)}
       onMouseLeave={() => {
-        if (!isMobile) close();
+        if (!isMobile && !pinned) close();
       }}
     >
       <button
@@ -130,7 +169,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
         onMouseEnter={scheduleOpen}
         onFocus={() => setOpen(true)}
         onBlur={() => {
-          if (!isMobile) close();
+          if (!isMobile && !pinned) close();
         }}
         onClick={onTriggerClick}
         aria-haspopup="dialog"
@@ -154,6 +193,23 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
           </span>
         )}
       </button>
+
+      {hintVisible && !showPanel && !isMobile && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "absolute z-50 -top-2 left-0 -translate-y-full",
+            "px-3 py-2 w-[min(360px,90vw)]",
+            "border border-orange-500/30 bg-background/95 backdrop-blur-sm",
+            "shadow-[0_20px_60px_-30px_rgba(0,0,0,0.55)]",
+            "text-xs text-muted-foreground"
+          )}
+        >
+          <div className="font-mono">Hover 0.2s to generate connotation…</div>
+          <div style={{ fontFamily: "var(--font-sans-zh)" }}>悬停 0.2 秒后开始生成 connotation…</div>
+        </div>
+      )}
 
       {showPanel && (
         <div
@@ -195,7 +251,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
 
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={() => close()}
                 className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
               >
                 Esc
@@ -206,6 +262,14 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
 
             {isLoading || isFetching ? (
               <div className="space-y-2">
+                {slow ? (
+                  <div className="space-y-1">
+                    <div className="text-sm text-foreground">Generating connotation…</div>
+                    <div className="text-sm text-muted-foreground" style={{ fontFamily: "var(--font-sans-zh)" }}>
+                      正在生成 connotation…（通常 2-6 秒；冷启动可能更久）
+                    </div>
+                  </div>
+                ) : null}
                 <div className="h-4 w-3/4 bg-muted/40 animate-pulse" />
                 <div className="h-4 w-2/3 bg-muted/30 animate-pulse" />
                 <div className="h-3 w-1/2 bg-muted/20 animate-pulse" />
