@@ -165,6 +165,20 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
       const vh = window.innerHeight || 0;
 
       const t = triggerEl.getBoundingClientRect();
+      const roomBelow = vh - t.bottom - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
+      const roomAbove = t.top - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
+
+      // Strict placement: above OR below the trigger. If it doesn't fit, constrain height and scroll.
+      const placeAbove = roomBelow < 200 && roomAbove > roomBelow;
+
+      const available = Math.max(
+        0,
+        Math.min(520, placeAbove ? roomAbove : roomBelow)
+      );
+
+      panelEl.style.maxHeight = `${available}px`;
+      panelEl.style.overflowY = "auto";
+
       const p = panelEl.getBoundingClientRect();
 
       // If we can't measure (jsdom / hidden), just bail gracefully.
@@ -172,11 +186,6 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
         panelEl.style.visibility = "visible";
         return;
       }
-
-      const roomBelow = vh - t.bottom - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
-      const roomAbove = t.top - PANEL_GAP_PX - VIEWPORT_PADDING_PX;
-
-      const placeAbove = roomBelow < p.height && roomAbove >= p.height;
 
       let top = placeAbove
         ? t.top - PANEL_GAP_PX - p.height
@@ -187,7 +196,11 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
 
       // Clamp within viewport.
       left = Math.max(VIEWPORT_PADDING_PX, Math.min(left, vw - p.width - VIEWPORT_PADDING_PX));
-      top = Math.max(VIEWPORT_PADDING_PX, Math.min(top, vh - p.height - VIEWPORT_PADDING_PX));
+      // Do NOT clamp vertically in a way that would overlap the trigger.
+      // If space is limited, maxHeight will shrink and the panel will scroll.
+      if (placeAbove) {
+        top = Math.max(VIEWPORT_PADDING_PX, top);
+      }
 
       panelEl.dataset.placement = placeAbove ? "top" : "bottom";
       panelEl.style.left = `${left}px`;

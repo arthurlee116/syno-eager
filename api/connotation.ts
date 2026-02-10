@@ -198,6 +198,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
       // See: https://openrouter.ai/docs/guides/features/structured-outputs
       response_format: response_format as unknown,
+      // OpenRouter Reasoning Tokens. For Gemini 3, effort maps to thinkingLevel.
+      // Exclude returned reasoning to keep the JSON content clean.
+      reasoning: { effort: "low", exclude: true } as unknown,
       messages: [
         {
           role: "system",
