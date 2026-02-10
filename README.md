@@ -4,17 +4,17 @@ A high-performance synonym finder using the "Eager Fetching" pattern.
 
 ## Setup
 
-1.  Copy `.env.example` to `.env` and add your Cerebras API Key.
+1.  Copy `.env.example` to `.env` and add your OpenRouter API Key.
     ```bash
     cp .env.example .env
     ```
 
     If your network requires an outbound proxy, also set:
-    - `CEREBRAS_PROXY_URL` (example: `http://127.0.0.1:10808`)
+    - `OPENROUTER_PROXY_URL` (example: `http://127.0.0.1:10808`)
 
 2.  Install dependencies:
     ```bash
-    npm install
+    pnpm install
     ```
 
 3.  Run locally:
@@ -26,7 +26,7 @@ A high-performance synonym finder using the "Eager Fetching" pattern.
     
     Or just the frontend (API will fail without proxy):
     ```bash
-    npm run dev
+    pnpm dev
     ```
 
 ## Deploy

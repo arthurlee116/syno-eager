@@ -1,36 +1,51 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
-import { type SynonymResponse, SynonymResponseSchema } from '@/lib/types';
-import { toast } from 'sonner';
+import { type SynonymResponse } from '@/lib/types';
+
+function toSearchParams(params: Record<string, string>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) sp.set(k, v);
+  return sp.toString();
+}
+
+async function readErrorMessage(res: Response): Promise<string | undefined> {
+  try {
+    const data: unknown = await res.clone().json();
+    if (data && typeof data === 'object') {
+      const err = (data as Record<string, unknown>).error;
+      if (typeof err === 'string' && err.trim()) return err.trim();
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const txt = await res.clone().text();
+    if (txt && txt.trim()) return txt.trim().slice(0, 300);
+  } catch {
+    // ignore
+  }
+  return undefined;
+}
 
 const fetchSynonyms = async (word: string): Promise<SynonymResponse> => {
-  try {
-    const response = await axios.get<SynonymResponse>(`/api/lookup`, {
-      params: { word },
-    });
-    return SynonymResponseSchema.parse(response.data);
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      if (error.response?.status === 429) {
-        throw new Error("Rate limit exceeded. Please wait a moment.");
-      }
-      if (error.response?.status === 402) {
-        const data: unknown = error.response.data;
-        let msg = 'Cerebras returned 402 (payment required). Please check billing/quota.';
-        if (data && typeof data === 'object') {
-          const errField = (data as Record<string, unknown>).error;
-          if (typeof errField === 'string') msg = errField;
-        }
-        throw new Error(msg);
-      }
-      if (error.response?.status === 500) {
-        const data = error.response.data as { error?: string } | undefined;
-        const msg = data?.error || "Failed to parse dictionary data. Please try again.";
-        throw new Error(msg);
-      }
+  const url = `/api/lookup?${toSearchParams({ word })}`;
+  const res = await fetch(url, { method: 'GET' });
+
+  if (!res.ok) {
+    if (res.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
+    if (res.status === 402) {
+      const msg = (await readErrorMessage(res)) || 'Cerebras returned 402 (payment required). Please check billing/quota.';
+      throw new Error(msg);
     }
-    throw error;
+    if (res.status === 500) {
+      const msg = (await readErrorMessage(res)) || "Failed to parse dictionary data. Please try again.";
+      throw new Error(msg);
+    }
+    const msg = (await readErrorMessage(res)) || `Request failed (${res.status})`;
+    throw new Error(msg);
   }
+
+  // Server validates and normalizes the response shape already; keep the client lightweight.
+  return (await res.json()) as SynonymResponse;
 };
 
 export function useSynonymFetch(word: string | null) {
@@ -38,16 +53,12 @@ export function useSynonymFetch(word: string | null) {
     queryKey: ['lookup', word],
     queryFn: () => fetchSynonyms(word!),
     enabled: !!word,
-    staleTime: Infinity, // Data is effectively static
-    gcTime: Infinity, // Keep in cache
+    // Synonym data is fairly static, but keep cache bounded to avoid unbounded local growth.
+    staleTime: 1000 * 60 * 60 * 24, // 24h
+    gcTime: 1000 * 60 * 60 * 24 * 7, // 7d
     retry: (failureCount, error) => {
       if (error.message.includes("Rate limit")) return false; // Don't retry rate limits automatically
       return failureCount < 2;
     },
-    meta: {
-      onError: (err: Error) => {
-        toast.error(err.message);
-      }
-    }
   });
 }

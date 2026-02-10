@@ -4,8 +4,9 @@ import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { SearchBar } from '@/components/SearchBar';
 import { ResultsView } from '@/components/ResultsView';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 function App() {
   const [word, setWord] = useState<string | null>(null);
@@ -17,6 +18,10 @@ function App() {
       addSearch(data.word);
     }
   }, [data, word, addSearch]);
+
+  useEffect(() => {
+    if (error) toast.error(error.message);
+  }, [error]);
 
   const handleSearch = (newWord: string) => {
     setWord(newWord);

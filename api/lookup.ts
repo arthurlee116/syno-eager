@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import { ProxyAgent } from 'undici';
 import { jsonrepair } from 'jsonrepair';
-import { SynonymResponseSchema } from '../src/lib/types.js';
+import { SynonymResponseSchema } from '../src/lib/synonymSchema.js';
 
 function extractFirstJsonObject(raw: string): string | null {
   // GLM 4.7 is a reasoning-capable model; some providers may prepend/append
