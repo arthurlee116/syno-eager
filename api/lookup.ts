@@ -1,12 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import OpenAI from 'openai';
-import { ProxyAgent } from 'undici';
+import type OpenAI from 'openai';
 import { jsonrepair } from 'jsonrepair';
 import { SynonymResponseSchema } from '../src/lib/synonymSchema.js';
+import { getOpenAIClient, storage } from './_openai.js';
 
 function extractFirstJsonObject(raw: string): string | null {
-  // GLM 4.7 is a reasoning-capable model; some providers may prepend/append
-  // non-JSON traces. This extracts the first balanced JSON object from text.
   const s = raw.trim();
   const start = s.indexOf('{');
   if (start < 0) return null;
@@ -46,116 +44,58 @@ function extractFirstJsonObject(raw: string): string | null {
 }
 
 function stripCodeFences(raw: string): string {
-  // Best-effort removal in case the model wraps JSON in ``` fences.
   return raw.replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '');
-}
-
-function getProxyURL(): string | null {
-  // If you need a local outbound proxy (e.g. Clash), set:
-  //   OPENROUTER_PROXY_URL=http://127.0.0.1:10808
-  // or use standard envs:
-  //   HTTPS_PROXY / HTTP_PROXY
-  return (
-    process.env.OPENROUTER_PROXY_URL ||
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.https_proxy ||
-    process.env.http_proxy ||
-    null
-  );
 }
 
 export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
-  // Captured non-2xx upstream body for better error reporting.
-  let capturedUpstreamErrorBody = '';
+  return storage.run({ capturedUpstreamErrorBody: '' }, async () => {
+    if (request.method !== 'GET') {
+      return response.status(405).json({ error: 'Method Not Allowed' });
+    }
 
-  if (request.method !== 'GET') {
-    return response.status(405).json({ error: 'Method Not Allowed' });
-  }
+    const { word } = request.query;
 
-  const { word } = request.query;
+    if (!word || typeof word !== 'string') {
+      return response.status(400).json({ error: 'Word parameter is required' });
+    }
 
-  if (!word || typeof word !== 'string') {
-    return response.status(400).json({ error: 'Word parameter is required' });
-  }
+    if (!process.env.OPENROUTER_API_KEY) {
+      return response.status(500).json({ error: 'Server misconfiguration: Missing API Key' });
+    }
 
-  if (!process.env.OPENROUTER_API_KEY) {
-    return response.status(500).json({ error: 'Server misconfiguration: Missing API Key' });
-  }
+    try {
+      const openai = getOpenAIClient();
+      const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
 
-  try {
-    const proxyURL = getProxyURL();
-    const dispatcher = proxyURL ? new ProxyAgent(proxyURL) : undefined;
-
-    const referer = process.env.OPENROUTER_SITE_URL || process.env.VERCEL_URL || 'http://localhost';
-    const title = process.env.OPENROUTER_APP_NAME || 'Syno-Eager';
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: 'https://openrouter.ai/api/v1',
-      fetchOptions: dispatcher ? ({ dispatcher } as Record<string, unknown>) : undefined,
-      defaultHeaders: {
-        'HTTP-Referer': referer,
-        'X-Title': title,
-      },
-      // Capture non-OpenAI-shaped error bodies (Cerebras sometimes returns {message,type,...}).
-      fetch: async (...args: Parameters<typeof fetch>) => {
-        const res = await fetch(...args);
-        if (!res.ok) {
-          try {
-            const text = await res.clone().text();
-            // Avoid logging huge bodies; keep it small but useful.
-            capturedUpstreamErrorBody = text.slice(0, 8_192);
-          } catch {
-            capturedUpstreamErrorBody = '';
-          }
-        }
-        return res;
-      },
-    });
-
-    const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
-
-    const response_format = {
-      type: 'json_schema',
-      json_schema: {
-        name: 'lookup',
-        strict: true,
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            word: { type: 'string' },
-            phonetics: { type: 'array', items: { type: 'string' } },
-            items: {
-              type: 'array',
+      const response_format = {
+        type: 'json_schema',
+        json_schema: {
+          name: 'lookup',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              word: { type: 'string' },
+              phonetics: { type: 'array', items: { type: 'string' } },
               items: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  partOfSpeech: { type: 'string' },
-                  meanings: {
-                    type: 'array',
-                    items: {
-                      type: 'object',
-                      additionalProperties: false,
-                      properties: {
-                        definition: { type: 'string' },
-                        example: {
-                          type: 'object',
-                          additionalProperties: false,
-                          properties: {
-                            en: { type: 'string' },
-                            zh: { type: 'string' },
-                          },
-                          required: ['en'],
-                        },
-                        synonyms: {
-                          type: 'array',
-                          items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    partOfSpeech: { type: 'string' },
+                    meanings: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        properties: {
+                          definition: { type: 'string' },
+                          example: {
                             type: 'object',
                             additionalProperties: false,
                             properties: {
@@ -164,33 +104,40 @@ export default async function handler(
                             },
                             required: ['en'],
                           },
+                          synonyms: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              additionalProperties: false,
+                              properties: {
+                                en: { type: 'string' },
+                                zh: { type: 'string' },
+                              },
+                              required: ['en'],
+                            },
+                          },
                         },
+                        required: ['definition', 'synonyms'],
                       },
-                      required: ['definition', 'synonyms'],
                     },
                   },
+                  required: ['partOfSpeech', 'meanings'],
                 },
-                required: ['partOfSpeech', 'meanings'],
               },
             },
+            required: ['word', 'items'],
           },
-          required: ['word', 'items'],
         },
-      },
-    };
+      };
 
-    const createParamsBase = {
-      model,
-      // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
-      // See: https://openrouter.ai/docs/guides/features/structured-outputs
-      response_format: response_format as unknown,
-      // OpenRouter Reasoning Tokens. For Gemini 3, effort maps to thinkingLevel.
-      // We exclude returned reasoning to keep the JSON content clean.
-      reasoning: { effort: 'low', exclude: true } as unknown,
-      messages: [
-        {
-          role: "system",
-          content: `You are a meticulous lexicographer. The user will provide a word. You must provide an EXHAUSTIVE, comprehensive analysis of this word.
+      const createParamsBase = {
+        model,
+        response_format: response_format as unknown,
+        reasoning: { effort: 'low', exclude: true } as unknown,
+        messages: [
+          {
+            role: "system",
+            content: `You are a meticulous lexicographer. The user will provide a word. You must provide an EXHAUSTIVE, comprehensive analysis of this word.
 1. Structure the JSON exactly as requested.
 3. Include EVERY possible definition (common, rare, archaic, technical).
 4. For EACH definition, provide a unique example sentence with Chinese translation.
@@ -223,94 +170,91 @@ export default async function handler(
 }
 9. Provide natural, contextually appropriate Chinese translations.
 10. If a Chinese translation cannot be determined, omit the "zh" field for that item.`
-        },
-        {
-          role: "user",
-          content: `Define the word: "${word}"`
+          },
+          {
+            role: "user",
+            content: `Define the word: "${word}"`
+          }
+        ],
+        temperature: 0,
+      };
+
+      // Type assertion as in original file
+      const typedCreateParams = createParamsBase as unknown as Parameters<typeof openai.chat.completions.create>[0];
+
+      const completion = await openai.chat.completions.create(
+        typedCreateParams
+      ) as OpenAI.Chat.Completions.ChatCompletion;
+
+      const rawContent = completion.choices[0]?.message?.content || "";
+
+      let parsedData;
+      try {
+        parsedData = JSON.parse(rawContent);
+      } catch {
+        console.warn("JSON Parse failed, attempting repair/extraction...");
+        try {
+          const unfenced = stripCodeFences(rawContent);
+          const extracted = extractFirstJsonObject(unfenced) ?? unfenced;
+          const repaired = jsonrepair(extracted);
+          parsedData = JSON.parse(repaired);
+        } catch (repairError) {
+          console.error("JSON Repair failed", repairError);
+          throw new Error("Failed to parse AI response");
         }
-      ],
-      // Deterministic output for strict JSON parsing.
-      temperature: 0,
-    };
-
-    const typedCreateParams = createParamsBase as unknown as Parameters<typeof openai.chat.completions.create>[0];
-
-    const completion = await openai.chat.completions.create(
-      typedCreateParams
-    ) as OpenAI.Chat.Completions.ChatCompletion;
-
-    const rawContent = completion.choices[0]?.message?.content || "";
-
-    // Attempt repair and parse
-    let parsedData;
-    try {
-      parsedData = JSON.parse(rawContent);
-    } catch {
-      console.warn("JSON Parse failed, attempting repair/extraction...");
-      try {
-        const unfenced = stripCodeFences(rawContent);
-        const extracted = extractFirstJsonObject(unfenced) ?? unfenced;
-        const repaired = jsonrepair(extracted);
-        parsedData = JSON.parse(repaired);
-      } catch (repairError) {
-        console.error("JSON Repair failed", repairError);
-        throw new Error("Failed to parse AI response");
       }
-    }
 
-    // Validate with Zod
-    const validatedData = SynonymResponseSchema.parse(parsedData);
+      const validatedData = SynonymResponseSchema.parse(parsedData);
 
-    return response.status(200).json(validatedData);
+      return response.status(200).json(validatedData);
 
-  } catch (error: unknown) {
-    console.error("API Error:", error);
-    if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) {
-      response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
-      return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
-    }
-
-    // Prefer forwarding upstream HTTP status (e.g. 402 payment_required) so the client can display
-    // a correct message instead of a generic "parse failed".
-    const errorObj = (typeof error === 'object' && error !== null) ? (error as Record<string, unknown>) : null;
-    const statusValue = errorObj?.status;
-    const status = typeof statusValue === 'number' ? statusValue : 500;
-
-    let upstreamMessage: string | undefined;
-    // The OpenAI SDK's APIError sometimes can't parse non-OpenAI-shaped JSON bodies.
-    // If our fetch wrapper captured something, try to extract a message from it.
-    try {
-      const inner = errorObj?.error;
-      if (inner && typeof inner === 'object') {
-        const msg = (inner as Record<string, unknown>).message;
-        if (typeof msg === 'string' && msg.trim()) upstreamMessage = msg.trim();
+    } catch (error: unknown) {
+      console.error("API Error:", error);
+      if (typeof error === 'object' && error !== null && 'status' in error && (error as { status: number }).status === 429) {
+        response.setHeader('Retry-After', (error as { headers?: { 'retry-after'?: string } }).headers?.['retry-after'] || '60');
+        return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
       }
-    } catch {
-      // ignore
-    }
 
-    // If we have a captured body, try to derive a helpful message from it.
-    if (!upstreamMessage && capturedUpstreamErrorBody) {
+      const errorObj = (typeof error === 'object' && error !== null) ? (error as Record<string, unknown>) : null;
+      const statusValue = errorObj?.status;
+      const status = typeof statusValue === 'number' ? statusValue : 500;
+
+      let upstreamMessage: string | undefined;
       try {
-        const parsed = JSON.parse(capturedUpstreamErrorBody);
-        if (parsed && typeof parsed === 'object') {
-          const msg = (parsed as Record<string, unknown>).message;
-          if (typeof msg === 'string') upstreamMessage = msg;
+        const inner = errorObj?.error;
+        if (inner && typeof inner === 'object') {
+          const msg = (inner as Record<string, unknown>).message;
+          if (typeof msg === 'string' && msg.trim()) upstreamMessage = msg.trim();
         }
       } catch {
         // ignore
       }
-    }
 
-    return response.status(status).json({
-      error:
-        status === 402
-          ? 'Cerebras billing/quota required. Please add billing or credits in your Cerebras dashboard.'
-          : (error as Error).message || 'Upstream API Error',
-      upstream_status: status,
-      upstream_message: upstreamMessage,
-      upstream_body: capturedUpstreamErrorBody || undefined,
-      details: String(error),
-    });
-  }
+      // Access capturedUpstreamErrorBody from storage
+      const capturedUpstreamErrorBody = storage.getStore()?.capturedUpstreamErrorBody || '';
+
+      if (!upstreamMessage && capturedUpstreamErrorBody) {
+        try {
+          const parsed = JSON.parse(capturedUpstreamErrorBody);
+          if (parsed && typeof parsed === 'object') {
+            const msg = (parsed as Record<string, unknown>).message;
+            if (typeof msg === 'string') upstreamMessage = msg;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      return response.status(status).json({
+        error:
+          status === 402
+            ? 'Cerebras billing/quota required. Please add billing or credits in your Cerebras dashboard.'
+            : (error as Error).message || 'Upstream API Error',
+        upstream_status: status,
+        upstream_message: upstreamMessage,
+        upstream_body: capturedUpstreamErrorBody || undefined,
+        details: String(error),
+      });
+    }
+  });
 }
