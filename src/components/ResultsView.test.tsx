@@ -48,7 +48,6 @@ vi.mock('framer-motion', () => ({
 }));
 
 // Mock ResizeObserver
-// @ts-expect-error - Mocking global property for tests
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}

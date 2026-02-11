@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { WebMCPTools } from '@/webmcp/WebMCPTools';
 
 function App() {
   const [word, setWord] = useState<string | null>(null);
@@ -27,7 +28,7 @@ function App() {
     setWord(newWord);
   };
 
-  const hasResults = !!data;
+  const hasResults = !!data && !error;
 
   // Animation Variants
   const heroVariants = {
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white overflow-x-hidden">
+      <WebMCPTools />
       
       {/* Background Grid - Subtle Swiss Touch */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0" 

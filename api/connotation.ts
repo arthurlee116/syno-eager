@@ -1,63 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import OpenAI from "openai";
-import { ProxyAgent } from "undici";
 import { z } from "zod";
-import { jsonrepair } from "jsonrepair";
 import { ConnotationResponseSchema } from "../src/lib/connotationSchema.js";
-
-function extractFirstJsonObject(raw: string): string | null {
-  const s = raw.trim();
-  const start = s.indexOf("{");
-  if (start < 0) return null;
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let i = start; i < s.length; i++) {
-    const ch = s[i];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (ch === "\\") {
-        escaped = true;
-        continue;
-      }
-      if (ch === '"') inString = false;
-      continue;
-    }
-
-    if (ch === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (ch === "{") depth++;
-    if (ch === "}") depth--;
-
-    if (depth === 0) return s.slice(start, i + 1);
-  }
-
-  return null;
-}
-
-function stripCodeFences(raw: string): string {
-  return raw.replace(/```(?:json)?\s*/gi, "").replace(/```\s*/g, "");
-}
-
-function getProxyURL(): string | null {
-  return (
-    process.env.OPENROUTER_PROXY_URL ||
-    process.env.HTTPS_PROXY ||
-    process.env.HTTP_PROXY ||
-    process.env.https_proxy ||
-    process.env.http_proxy ||
-    null
-  );
-}
+import {
+  createOpenRouterClient,
+  getRetryAfterSecondsFrom429,
+  getUpstreamMessage,
+  getUpstreamStatus,
+  parseJsonFromLLM,
+} from "../src/server/openrouter.js";
 
 const QuerySchema = z.object({
   headword: z.string().min(1).max(80),
@@ -88,31 +39,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { headword, synonym, partOfSpeech, definition } = parsed.data;
 
   try {
-    const proxyURL = getProxyURL();
-    const dispatcher = proxyURL ? new ProxyAgent(proxyURL) : undefined;
-
-    const referer = process.env.OPENROUTER_SITE_URL || process.env.VERCEL_URL || "http://localhost";
-    const title = process.env.OPENROUTER_APP_NAME || "Syno-Eager";
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENROUTER_API_KEY,
-      baseURL: "https://openrouter.ai/api/v1",
-      fetchOptions: dispatcher ? ({ dispatcher } as Record<string, unknown>) : undefined,
-      defaultHeaders: {
-        "HTTP-Referer": referer,
-        "X-Title": title,
-      },
-      fetch: async (...args: Parameters<typeof fetch>) => {
-        const r = await fetch(...args);
-        if (!r.ok) {
-          try {
-            const text = await r.clone().text();
-            capturedUpstreamErrorBody = text.slice(0, 8_192);
-          } catch {
-            capturedUpstreamErrorBody = "";
-          }
-        }
-        return r;
+    const openai = createOpenRouterClient({
+      captureNon2xxBody: (body) => {
+        capturedUpstreamErrorBody = body;
       },
     });
 
@@ -227,65 +156,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const rawContent = completion.choices[0]?.message?.content || "";
 
-    let parsedData: unknown;
-    try {
-      parsedData = JSON.parse(rawContent);
-    } catch {
-      try {
-        const unfenced = stripCodeFences(rawContent);
-        const extracted = extractFirstJsonObject(unfenced) ?? unfenced;
-        const repaired = jsonrepair(extracted);
-        parsedData = JSON.parse(repaired);
-      } catch (repairError) {
-        console.error("Connotation JSON repair failed", repairError);
-        throw new Error("Failed to parse AI response");
-      }
-    }
+    const parsedData = parseJsonFromLLM(rawContent, "Connotation");
 
     const validated = ConnotationResponseSchema.parse(parsedData);
     return res.status(200).json(validated);
   } catch (error: unknown) {
     console.error("Connotation API Error:", error);
 
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "status" in error &&
-      (error as { status: number }).status === 429
-    ) {
-      res.setHeader(
-        "Retry-After",
-        (error as { headers?: { "retry-after"?: string } }).headers?.["retry-after"] || "60"
-      );
+    const retryAfter = getRetryAfterSecondsFrom429(error);
+    if (retryAfter) {
+      res.setHeader("Retry-After", retryAfter);
       return res.status(429).json({ error: "Rate limit exceeded. Please wait." });
     }
 
-    const errorObj = typeof error === "object" && error !== null ? (error as Record<string, unknown>) : null;
-    const statusValue = errorObj?.status;
-    const status = typeof statusValue === "number" ? statusValue : 500;
-
-    let upstreamMessage: string | undefined;
-    try {
-      const inner = errorObj?.error;
-      if (inner && typeof inner === "object") {
-        const msg = (inner as Record<string, unknown>).message;
-        if (typeof msg === "string" && msg.trim()) upstreamMessage = msg.trim();
-      }
-    } catch {
-      // ignore
-    }
-
-    if (!upstreamMessage && capturedUpstreamErrorBody) {
-      try {
-        const parsedBody = JSON.parse(capturedUpstreamErrorBody);
-        if (parsedBody && typeof parsedBody === "object") {
-          const msg = (parsedBody as Record<string, unknown>).message;
-          if (typeof msg === "string") upstreamMessage = msg;
-        }
-      } catch {
-        // ignore
-      }
-    }
+    const status = getUpstreamStatus(error);
+    const upstreamMessage = getUpstreamMessage(error, capturedUpstreamErrorBody);
 
     return res.status(status).json({
       error:
@@ -294,8 +179,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           : (error as Error).message || "Upstream API Error",
       upstream_status: status,
       upstream_message: upstreamMessage,
-      upstream_body: capturedUpstreamErrorBody || undefined,
-      details: String(error),
     });
   }
 }

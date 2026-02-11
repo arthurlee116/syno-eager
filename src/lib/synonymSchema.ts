@@ -27,3 +27,4 @@ export const SynonymResponseSchema = z.object({
   items: z.array(ItemSchema),
 });
 
+export type SynonymResponse = z.infer<typeof SynonymResponseSchema>;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/primitives/Input';
 import { Button } from '@/components/primitives/Button';
 import { Search, Loader2, ArrowRight } from 'lucide-react';
@@ -14,6 +14,10 @@ interface SearchBarProps {
 
 export function SearchBar({ onSearch, isLoading, variant = 'centered', initialValue = '' }: SearchBarProps) {
   const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 const STORAGE_KEY = 'syno_recent_searches';
 const MAX_HISTORY = 10;
@@ -17,22 +17,26 @@ export function useRecentSearches() {
     return [];
   });
 
-  const addSearch = (word: string) => {
+  const addSearch = useCallback((word: string) => {
     const lowerWord = word.toLowerCase().trim();
     if (!lowerWord) return;
 
     setHistory((prev) => {
       const filtered = prev.filter((w) => w !== lowerWord);
       const newHistory = [lowerWord, ...filtered].slice(0, MAX_HISTORY);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+      }
       return newHistory;
     });
-  };
+  }, []);
 
-  const clearHistory = () => {
+  const clearHistory = useCallback(() => {
     setHistory([]);
-    localStorage.removeItem(STORAGE_KEY);
-  };
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
 
   return { history, addSearch, clearHistory };
 }

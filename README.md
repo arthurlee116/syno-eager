@@ -34,3 +34,36 @@ A high-performance synonym finder using the "Eager Fetching" pattern.
 ```bash
 vercel deploy
 ```
+
+## WebMCP (In-Browser Tools)
+
+This app registers two WebMCP tools (via `navigator.modelContext`) when the MCP-B polyfill is available:
+
+- `lookup_synonyms`
+- `lookup_connotation`
+
+### Try It Locally
+
+1. Install the MCP-B Extension in Chrome: [MCP-B extension](https://chromewebstore.google.com/detail/mcp-b-extension/daohopfhkdelnpemnhlekblhnikhdhfa)
+2. Run the app with APIs enabled:
+   ```bash
+   vercel dev
+   ```
+3. Open the site in Chrome, click the extension icon, and check the **Tools** tab.
+
+### Example Inputs
+
+`lookup_synonyms`
+```json
+{ "word": "eager" }
+```
+
+`lookup_connotation`
+```json
+{
+  "headword": "serendipity",
+  "synonym": "chance",
+  "partOfSpeech": "noun",
+  "definition": "The occurrence of events by chance in a happy way."
+}
+```
