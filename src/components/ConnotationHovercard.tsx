@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 import { useConnotationFetch } from "@/hooks/useConnotationFetch";
 import { useMobile } from "@/hooks/useMobile";
+import { useHoverIntent } from "@/hooks/useHoverIntent";
 
 type Synonym = { en: string; zh?: string };
 
@@ -14,23 +15,38 @@ type ConnotationHovercardProps = {
   className?: string;
 };
 
-const HOVER_INTENT_MS = 200;
 const PANEL_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 8;
-const CLOSE_DELAY_MS = 120;
 
 export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const { headword, partOfSpeech, definition, synonym, className } = props;
   const isMobile = useMobile();
   const contentId = useId();
 
-  const [open, setOpen] = useState(false);
-  const [pinned, setPinned] = useState(false);
-  const [hintVisible, setHintVisible] = useState(false);
   const [slow, setSlow] = useState(false);
-  const hoverTimer = useRef<number | null>(null);
   const slowTimer = useRef<number | null>(null);
-  const closeTimer = useRef<number | null>(null);
+
+  const {
+    open,
+    pinned,
+    hintVisible,
+    scheduleOpen,
+    scheduleClose,
+    cancelScheduledOpen,
+    cancelScheduledClose,
+    close,
+    onTriggerClick,
+    setOpen,
+  } = useHoverIntent({
+    disabled: isMobile,
+    onClose: () => {
+      setSlow(false);
+      if (slowTimer.current) {
+        window.clearTimeout(slowTimer.current);
+        slowTimer.current = null;
+      }
+    },
+  });
 
   const params = useMemo(
     () => ({
@@ -88,78 +104,6 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
         };
     }
   })();
-
-  useEffect(() => {
-    return () => {
-      if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-      if (slowTimer.current) window.clearTimeout(slowTimer.current);
-      if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    };
-  }, []);
-
-  const scheduleOpen = () => {
-    if (isMobile) return; // mobile uses tap
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    setHintVisible(true);
-    hoverTimer.current = window.setTimeout(() => {
-      setOpen(true);
-      setHintVisible(false);
-    }, HOVER_INTENT_MS);
-  };
-
-  const cancelScheduledOpen = useCallback(() => {
-    if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-    hoverTimer.current = null;
-  }, []);
-
-  const cancelScheduledClose = useCallback(() => {
-    if (closeTimer.current) window.clearTimeout(closeTimer.current);
-    closeTimer.current = null;
-  }, []);
-
-  const close = useCallback(() => {
-    cancelScheduledOpen();
-    cancelScheduledClose();
-    setOpen(false);
-    setPinned(false);
-    setHintVisible(false);
-    setSlow(false);
-  }, [cancelScheduledOpen, cancelScheduledClose]);
-
-  const scheduleClose = useCallback(() => {
-    if (isMobile || pinned) return;
-    cancelScheduledClose();
-    closeTimer.current = window.setTimeout(() => close(), CLOSE_DELAY_MS);
-  }, [cancelScheduledClose, close, isMobile, pinned]);
-
-  useEffect(() => {
-    if (!open || isMobile) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, isMobile, close]);
-
-  const onTriggerClick = () => {
-    if (isMobile) {
-      if (open) close();
-      else {
-        setOpen(true);
-        setHintVisible(false);
-      }
-      return;
-    }
-
-    // Desktop: click pins/unpins the card so the user can move the mouse and read.
-    if (pinned) close();
-    else {
-      setPinned(true);
-      setOpen(true);
-      setHintVisible(false);
-    }
-  };
 
   const showPanel = open;
 

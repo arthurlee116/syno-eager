@@ -31,8 +31,7 @@ export function SearchBar({ onSearch, isLoading, variant = 'centered', initialVa
       layoutId="search-bar-container"
       onSubmit={handleSubmit} 
       className={cn(
-        "w-full flex gap-0 relative group",
-        variant === 'centered' ? "max-w-xl" : "max-w-xl"
+        "w-full flex gap-0 relative group max-w-xl"
       )}
     >
       <div className="relative flex-1">

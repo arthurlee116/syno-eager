@@ -1,12 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import OpenAI from 'openai';
+import type OpenAI from 'openai';
 import { z } from 'zod';
 import { SynonymResponseSchema } from '../src/lib/synonymSchema.js';
 import {
+  type OpenRouterCreateParams,
   createOpenRouterClient,
-  getRetryAfterSecondsFrom429,
-  getUpstreamMessage,
-  getUpstreamStatus,
+  handleApiError,
   parseJsonFromLLM,
 } from '../src/server/openrouter.js';
 
@@ -47,74 +46,70 @@ export default async function handler(
 
     const model = process.env.OPENROUTER_MODEL || 'google/gemini-3-flash-preview';
 
-    const response_format = {
-      type: 'json_schema',
-      json_schema: {
-        name: 'lookup',
-        strict: true,
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            word: { type: 'string' },
-            phonetics: { type: 'array', items: { type: 'string' } },
-            items: {
-              type: 'array',
-              items: {
-                type: 'object',
-                additionalProperties: false,
-                properties: {
-                  partOfSpeech: { type: 'string' },
-                  meanings: {
-                    type: 'array',
-                    items: {
+    const lookupSchema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        word: { type: 'string' },
+        phonetics: { type: 'array', items: { type: 'string' } },
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            properties: {
+              partOfSpeech: { type: 'string' },
+              meanings: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  properties: {
+                    definition: { type: 'string' },
+                    example: {
                       type: 'object',
                       additionalProperties: false,
                       properties: {
-                        definition: { type: 'string' },
-                        example: {
-                          type: 'object',
-                          additionalProperties: false,
-                          properties: {
-                            en: { type: 'string' },
-                            zh: { type: 'string' },
-                          },
-                          required: ['en'],
-                        },
-                        synonyms: {
-                          type: 'array',
-                          items: {
-                            type: 'object',
-                            additionalProperties: false,
-                            properties: {
-                              en: { type: 'string' },
-                              zh: { type: 'string' },
-                            },
-                            required: ['en'],
-                          },
-                        },
+                        en: { type: 'string' },
+                        zh: { type: 'string' },
                       },
-                      required: ['definition', 'synonyms'],
+                      required: ['en'],
+                    },
+                    synonyms: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        additionalProperties: false,
+                        properties: {
+                          en: { type: 'string' },
+                          zh: { type: 'string' },
+                        },
+                        required: ['en'],
+                      },
                     },
                   },
+                  required: ['definition', 'synonyms'],
                 },
-                required: ['partOfSpeech', 'meanings'],
               },
             },
+            required: ['partOfSpeech', 'meanings'],
           },
-          required: ['word', 'items'],
         },
       },
+      required: ['word', 'items'],
     };
 
-    const createParamsBase = {
+    const createParamsBase: OpenRouterCreateParams = {
       model,
-      // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
-      // See: https://openrouter.ai/docs/guides/features/structured-outputs
-      response_format: response_format as unknown,
-      // OpenRouter Reasoning Tokens. For Gemini 3, effort maps to thinkingLevel.
-      // We exclude returned reasoning to keep the JSON content clean.
-      reasoning: { effort: 'low', exclude: true } as unknown,
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'lookup',
+          strict: true,
+          schema: lookupSchema,
+        },
+      },
+      reasoning: { effort: 'low', exclude: true },
       messages: [
         {
           role: "system",
@@ -161,10 +156,8 @@ export default async function handler(
       temperature: 0,
     };
 
-    const typedCreateParams = createParamsBase as unknown as Parameters<typeof openai.chat.completions.create>[0];
-
     const completion = await openai.chat.completions.create(
-      typedCreateParams
+      createParamsBase as Parameters<typeof openai.chat.completions.create>[0]
     ) as OpenAI.Chat.Completions.ChatCompletion;
 
     const rawContent = completion.choices[0]?.message?.content || "";
@@ -177,25 +170,6 @@ export default async function handler(
     return response.status(200).json(validatedData);
 
   } catch (error: unknown) {
-    console.error("API Error:", error);
-    const retryAfter = getRetryAfterSecondsFrom429(error);
-    if (retryAfter) {
-      response.setHeader('Retry-After', retryAfter);
-      return response.status(429).json({ error: 'Rate limit exceeded. Please wait.' });
-    }
-
-    // Prefer forwarding upstream HTTP status (e.g. 402 payment_required) so the client can display
-    // a correct message instead of a generic "parse failed".
-    const status = getUpstreamStatus(error);
-    const upstreamMessage = getUpstreamMessage(error, capturedUpstreamErrorBody);
-
-    return response.status(status).json({
-      error:
-        status === 402
-          ? 'Cerebras billing/quota required. Please add billing or credits in your Cerebras dashboard.'
-          : (error as Error).message || 'Upstream API Error',
-      upstream_status: status,
-      upstream_message: upstreamMessage,
-    });
+    return handleApiError(error, response, capturedUpstreamErrorBody, "Lookup API");
   }
 }

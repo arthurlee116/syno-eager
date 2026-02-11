@@ -6,8 +6,7 @@ import { ResultsView } from '@/components/ResultsView';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
-import { toast } from 'sonner';
-import { WebMCPTools } from '@/webmcp/WebMCPTools';
+
 
 function App() {
   const [word, setWord] = useState<string | null>(null);
@@ -15,14 +14,11 @@ function App() {
   const { history, addSearch, clearHistory } = useRecentSearches();
 
   useEffect(() => {
-    if (data && word) {
+    if (data) {
       addSearch(data.word);
     }
-  }, [data, word, addSearch]);
+  }, [data, addSearch]);
 
-  useEffect(() => {
-    if (error) toast.error(error.message);
-  }, [error]);
 
   const handleSearch = (newWord: string) => {
     setWord(newWord);
@@ -44,8 +40,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-primary selection:text-white overflow-x-hidden">
-      <WebMCPTools />
-      
       {/* Background Grid - Subtle Swiss Touch */}
       <div className="fixed inset-0 pointer-events-none opacity-[0.03] z-0" 
            style={{ backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)', backgroundSize: '40px 40px' }}

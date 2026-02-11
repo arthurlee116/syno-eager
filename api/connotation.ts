@@ -1,12 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import { z } from "zod";
 import { ConnotationResponseSchema } from "../src/lib/connotationSchema.js";
 import {
+  type OpenRouterCreateParams,
   createOpenRouterClient,
-  getRetryAfterSecondsFrom429,
-  getUpstreamMessage,
-  getUpstreamStatus,
+  handleApiError,
   parseJsonFromLLM,
 } from "../src/server/openrouter.js";
 
@@ -47,89 +46,85 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const model = process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
 
-    const response_format = {
-      type: "json_schema",
-      json_schema: {
-        name: "connotation",
-        strict: true,
-        schema: {
+    const connotationSchema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        headword: { type: "string" },
+        synonym: { type: "string" },
+        partOfSpeech: { type: "string" },
+        definition: { type: "string" },
+        polarity: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
+        register: { type: "string", enum: ["formal", "neutral", "informal"] },
+        toneTags: {
+          type: "array",
+          minItems: 1,
+          maxItems: 6,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              en: { type: "string" },
+              zh: { type: "string" },
+            },
+            required: ["en"],
+          },
+        },
+        usageNote: {
           type: "object",
           additionalProperties: false,
           properties: {
-            headword: { type: "string" },
-            synonym: { type: "string" },
-            partOfSpeech: { type: "string" },
-            definition: { type: "string" },
-            polarity: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
-            register: { type: "string", enum: ["formal", "neutral", "informal"] },
-            toneTags: {
-              type: "array",
-              minItems: 1,
-              maxItems: 6,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  en: { type: "string" },
-                  zh: { type: "string" },
-                },
-                required: ["en"],
-              },
-            },
-            usageNote: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                en: { type: "string" },
-                zh: { type: "string" },
-              },
-              required: ["en"],
-            },
-            cautions: {
-              type: "array",
-              maxItems: 4,
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  en: { type: "string" },
-                  zh: { type: "string" },
-                },
-                required: ["en"],
-              },
-            },
-            example: {
-              type: "object",
-              additionalProperties: false,
-              properties: {
-                en: { type: "string" },
-                zh: { type: "string" },
-              },
-              required: ["en"],
-            },
+            en: { type: "string" },
+            zh: { type: "string" },
           },
-          required: [
-            "headword",
-            "synonym",
-            "partOfSpeech",
-            "definition",
-            "polarity",
-            "register",
-            "toneTags",
-            "usageNote",
-          ],
+          required: ["en"],
+        },
+        cautions: {
+          type: "array",
+          maxItems: 4,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              en: { type: "string" },
+              zh: { type: "string" },
+            },
+            required: ["en"],
+          },
+        },
+        example: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            en: { type: "string" },
+            zh: { type: "string" },
+          },
+          required: ["en"],
         },
       },
+      required: [
+        "headword",
+        "synonym",
+        "partOfSpeech",
+        "definition",
+        "polarity",
+        "register",
+        "toneTags",
+        "usageNote",
+      ],
     };
 
     const completion = (await openai.chat.completions.create({
       model,
-      // OpenRouter Structured Outputs (JSON Schema). Forces the model to emit schema-valid JSON.
-      // See: https://openrouter.ai/docs/guides/features/structured-outputs
-      response_format: response_format as unknown,
-      // OpenRouter Reasoning Tokens. For Gemini 3, effort maps to thinkingLevel.
-      // Exclude returned reasoning to keep the JSON content clean.
-      reasoning: { effort: "low", exclude: true } as unknown,
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "connotation",
+          strict: true,
+          schema: connotationSchema,
+        },
+      },
+      reasoning: { effort: "low", exclude: true },
       messages: [
         {
           role: "system",
@@ -152,7 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       ],
       temperature: 0,
-    })) as OpenAI.Chat.Completions.ChatCompletion;
+    } as OpenRouterCreateParams)) as OpenAI.Chat.Completions.ChatCompletion;
 
     const rawContent = completion.choices[0]?.message?.content || "";
 
@@ -161,24 +156,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const validated = ConnotationResponseSchema.parse(parsedData);
     return res.status(200).json(validated);
   } catch (error: unknown) {
-    console.error("Connotation API Error:", error);
-
-    const retryAfter = getRetryAfterSecondsFrom429(error);
-    if (retryAfter) {
-      res.setHeader("Retry-After", retryAfter);
-      return res.status(429).json({ error: "Rate limit exceeded. Please wait." });
-    }
-
-    const status = getUpstreamStatus(error);
-    const upstreamMessage = getUpstreamMessage(error, capturedUpstreamErrorBody);
-
-    return res.status(status).json({
-      error:
-        status === 402
-          ? "Upstream billing/quota required. Please add billing or credits in your provider dashboard."
-          : (error as Error).message || "Upstream API Error",
-      upstream_status: status,
-      upstream_message: upstreamMessage,
-    });
+    return handleApiError(error, res, capturedUpstreamErrorBody, "Connotation API");
   }
 }

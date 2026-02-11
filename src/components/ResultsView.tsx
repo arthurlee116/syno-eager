@@ -28,6 +28,17 @@ const itemAnim = {
 export function ResultsView({ data }: ResultsViewProps) {
   const isMobile = useMobile();
   const tabs = useMemo(() => data.items.map((i) => i.partOfSpeech), [data.items]);
+  const tabIds = useMemo(
+    () =>
+      data.items.map((item, index) => {
+        const slug = item.partOfSpeech
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        return `tab-${index}-${slug || 'pos'}`;
+      }),
+    [data.items],
+  );
   const [activeTab, setActiveTab] = useState(() => tabs[0] ?? 'all');
 
   const safeActiveTab = tabs.includes(activeTab) ? activeTab : (tabs[0] ?? 'all');
@@ -67,13 +78,17 @@ export function ResultsView({ data }: ResultsViewProps) {
           aria-label="Parts of speech"
           className="w-full flex justify-start h-auto p-0 bg-transparent mb-12 border-b border-border rounded-none gap-8 overflow-x-auto"
         >
-          {data.items.map((item) => {
+          {data.items.map((item, index) => {
             const isActive = item.partOfSpeech === safeActiveTab;
+            const tabId = tabIds[index] ?? `tab-${index}-pos`;
+            const panelId = `tabpanel-${tabId}`;
             return (
               <button
                 key={item.partOfSpeech}
                 role="tab"
+                id={tabId}
                 aria-selected={isActive}
+                aria-controls={panelId}
                 className={[
                   "px-0 py-4 rounded-none border-b-2 border-transparent capitalize text-xl font-display font-medium tracking-wide transition-all hover:text-primary/70",
                   isActive ? "border-primary text-primary" : "text-foreground/60",
@@ -92,10 +107,12 @@ export function ResultsView({ data }: ResultsViewProps) {
           </p>
         </div>
 
-        {data.items.map((item) => {
+        {data.items.map((item, index) => {
           if (item.partOfSpeech !== safeActiveTab) return null;
+          const tabId = tabIds[index] ?? `tab-${index}-pos`;
+          const panelId = `tabpanel-${tabId}`;
           return (
-            <div key={item.partOfSpeech} role="tabpanel" className="focus:outline-none">
+            <div key={item.partOfSpeech} role="tabpanel" id={panelId} aria-labelledby={tabId} className="focus:outline-none">
               <motion.div
                 variants={container}
                 initial="hidden"

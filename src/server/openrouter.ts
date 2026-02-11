@@ -1,6 +1,26 @@
 import OpenAI from "openai";
+import type { VercelResponse } from "@vercel/node";
 import { ProxyAgent } from "undici";
 import { jsonrepair } from "jsonrepair";
+
+/**
+ * Extended create params for OpenRouter, which supports fields beyond the OpenAI SDK types.
+ * This avoids `as unknown` casts scattered across API handlers.
+ */
+export type OpenRouterCreateParams = Parameters<typeof OpenAI.prototype.chat.completions.create>[0] & {
+  response_format?: {
+    type: "json_schema";
+    json_schema: {
+      name: string;
+      strict: boolean;
+      schema: Record<string, unknown>;
+    };
+  };
+  reasoning?: {
+    effort: "low" | "medium" | "high";
+    exclude: boolean;
+  };
+};
 
 export function extractFirstJsonObject(raw: string): string | null {
   // Some providers may prepend/append non-JSON traces. Extract the first balanced JSON object.
@@ -160,3 +180,34 @@ export function getUpstreamMessage(error: unknown, capturedUpstreamErrorBody: st
   return undefined;
 }
 
+/**
+ * Shared catch-block handler for API routes. Logs the error, detects 429/402 upstream
+ * statuses, and writes a structured JSON error response.
+ */
+export function handleApiError(
+  error: unknown,
+  res: VercelResponse,
+  capturedUpstreamErrorBody: string,
+  label: string,
+): void {
+  console.error(`${label} Error:`, error);
+
+  const retryAfter = getRetryAfterSecondsFrom429(error);
+  if (retryAfter) {
+    res.setHeader("Retry-After", retryAfter);
+    res.status(429).json({ error: "Rate limit exceeded. Please wait." });
+    return;
+  }
+
+  const status = getUpstreamStatus(error);
+  const upstreamMessage = getUpstreamMessage(error, capturedUpstreamErrorBody);
+
+  res.status(status).json({
+    error:
+      status === 402
+        ? "Upstream billing/quota required. Please add billing or credits in your provider dashboard."
+        : (error as Error).message || "Upstream API Error",
+    upstream_status: status,
+    upstream_message: upstreamMessage,
+  });
+}
