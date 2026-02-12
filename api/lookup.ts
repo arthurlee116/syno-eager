@@ -9,9 +9,11 @@ import {
   parseJsonFromLLM,
 } from '../src/server/openrouter.js';
 
-const QuerySchema = z.object({
-  word: z.string().trim().min(1).max(80),
-});
+const QuerySchema = z
+  .object({
+    word: z.string().trim().min(1).max(80),
+  })
+  .strict();
 
 export default async function handler(
   request: VercelRequest,

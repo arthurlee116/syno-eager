@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import lookupHandler from '../../api/lookup';
 import connotationHandler from '../../api/connotation';
@@ -17,6 +17,7 @@ vi.mock('../server/openrouter', async (importOriginal) => {
 describe('API Cache Headers', () => {
   let req: Partial<VercelRequest>;
   let res: Partial<VercelResponse>;
+  const originalApiKey = process.env.OPENROUTER_API_KEY;
 
   beforeEach(() => {
     process.env.OPENROUTER_API_KEY = 'test-key';
@@ -30,6 +31,20 @@ describe('API Cache Headers', () => {
       setHeader: vi.fn(),
     } as unknown as Partial<VercelResponse>;
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (originalApiKey === undefined) {
+      delete process.env.OPENROUTER_API_KEY;
+    } else {
+      process.env.OPENROUTER_API_KEY = originalApiKey;
+    }
+  });
+
+  it('should reject unknown query parameters on lookup', async () => {
+    req.query = { word: 'fast', x: '1' };
+    await lookupHandler(req as VercelRequest, res as VercelResponse);
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   it('should set Cache-Control headers on lookup success', async () => {
@@ -67,6 +82,18 @@ describe('API Cache Headers', () => {
       'public, s-maxage=86400, stale-while-revalidate=604800'
     );
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it('should reject unknown query parameters on connotation', async () => {
+    req.query = {
+      headword: 'happy',
+      synonym: 'joyful',
+      partOfSpeech: 'adjective',
+      definition: 'feeling or showing pleasure or contentment.',
+      x: '1',
+    };
+    await connotationHandler(req as VercelRequest, res as VercelResponse);
+    expect(res.status).toHaveBeenCalledWith(400);
   });
 
   it('should set Cache-Control headers on connotation success', async () => {
