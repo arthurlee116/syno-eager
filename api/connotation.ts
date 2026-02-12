@@ -154,6 +154,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsedData = parseJsonFromLLM(rawContent, "Connotation");
 
     const validated = ConnotationResponseSchema.parse(parsedData);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=604800');
     return res.status(200).json(validated);
   } catch (error: unknown) {
     return handleApiError(error, res, capturedUpstreamErrorBody, "Connotation API");
