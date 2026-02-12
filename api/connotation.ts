@@ -9,12 +9,14 @@ import {
   parseJsonFromLLM,
 } from "../src/server/openrouter.js";
 
-const QuerySchema = z.object({
-  headword: z.string().min(1).max(80),
-  synonym: z.string().min(1).max(80),
-  partOfSpeech: z.string().min(1).max(40),
-  definition: z.string().min(1).max(400),
-});
+const QuerySchema = z
+  .object({
+    headword: z.string().min(1).max(80),
+    synonym: z.string().min(1).max(80),
+    partOfSpeech: z.string().min(1).max(40),
+    definition: z.string().min(1).max(400),
+  })
+  .strict();
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   let capturedUpstreamErrorBody = "";
