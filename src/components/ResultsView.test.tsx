@@ -1,6 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ResultsView } from '@/components/ResultsView';
 import type { SynonymResponse } from '@/lib/types';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockData: SynonymResponse = {
   word: "serendipity",
@@ -47,32 +48,43 @@ vi.mock('framer-motion', () => ({
 }));
 
 // Mock ResizeObserver
-// @ts-expect-error - Mocking global property for tests
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}
 };
 
+function renderWithQuery(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        gcTime: 0,
+      },
+    },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
 describe('ResultsView', () => {
   it('renders the word and phonetics', () => {
-    render(<ResultsView data={mockData} />);
+    renderWithQuery(<ResultsView data={mockData} />);
     expect(screen.getByText("serendipity")).toBeInTheDocument();
     expect(screen.getByText("/ˌser.ənˈdɪp.ə.ti/")).toBeInTheDocument();
   });
 
   it('renders definitions', () => {
-    render(<ResultsView data={mockData} />);
+    renderWithQuery(<ResultsView data={mockData} />);
     expect(screen.getByText("The occurrence of events by chance in a happy way.")).toBeInTheDocument();
   });
 
   it('renders examples', () => {
-    render(<ResultsView data={mockData} />);
+    renderWithQuery(<ResultsView data={mockData} />);
     expect(screen.getByText('"It was pure serendipity that we met."')).toBeInTheDocument();
   });
 
   it('renders synonyms with Chinese translations', () => {
-    render(<ResultsView data={mockData} />);
+    renderWithQuery(<ResultsView data={mockData} />);
     expect(screen.getByText("chance")).toBeInTheDocument();
     expect(screen.getByText("机会")).toBeInTheDocument();
     expect(screen.getByText("luck")).toBeInTheDocument();
@@ -80,10 +92,50 @@ describe('ResultsView', () => {
   });
   
   it('switches tabs', () => {
-      render(<ResultsView data={mockData} />);
+      renderWithQuery(<ResultsView data={mockData} />);
       const verbTab = screen.getByText("verb");
       fireEvent.click(verbTab);
       // Shadcn tabs logic handles visibility, checking if trigger exists implies structure is correct
       expect(verbTab).toBeInTheDocument();
   });
+
+  it(
+    'fetches connotation on hover intent and renders it',
+    async () => {
+    const prevFetch = globalThis.fetch;
+
+    const connotation = {
+      headword: "serendipity",
+      synonym: "chance",
+      partOfSpeech: "noun",
+      definition: "The occurrence of events by chance in a happy way.",
+      polarity: "neutral",
+      register: "neutral",
+      toneTags: [{ en: "casual", zh: "随意" }],
+      usageNote: { en: 'Often feels less "magical" than serendipity.', zh: "通常没有 serendipity 那种“奇妙”的感觉。" },
+      cautions: [{ en: "Can sound plain or accidental.", zh: "可能显得平淡或只是偶然。" }],
+      example: { en: "It was a lucky chance.", zh: "那是一次幸运的偶然。" },
+    };
+
+    globalThis.fetch = vi.fn(async () => {
+      return new Response(JSON.stringify(connotation), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+
+    renderWithQuery(<ResultsView data={mockData} />);
+    const chanceBtn = screen.getByRole("button", { name: /chance/i });
+    await act(async () => {
+      fireEvent.mouseEnter(chanceBtn);
+      await new Promise((r) => setTimeout(r, 220));
+    });
+
+    expect(await screen.findByText(/polarity:/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Often feels less/i)).toBeInTheDocument();
+
+    globalThis.fetch = prevFetch;
+  },
+    10_000
+  );
 });

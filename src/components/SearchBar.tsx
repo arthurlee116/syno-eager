@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import React, { useEffect, useState } from 'react';
+import { Input } from '@/components/primitives/Input';
+import { Button } from '@/components/primitives/Button';
 import { Search, Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,10 @@ interface SearchBarProps {
 export function SearchBar({ onSearch, isLoading, variant = 'centered', initialValue = '' }: SearchBarProps) {
   const [value, setValue] = useState(initialValue);
 
+  useEffect(() => {
+    setValue(initialValue);
+  }, [initialValue]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (value.trim()) {
@@ -27,8 +31,7 @@ export function SearchBar({ onSearch, isLoading, variant = 'centered', initialVa
       layoutId="search-bar-container"
       onSubmit={handleSubmit} 
       className={cn(
-        "w-full flex gap-0 relative group",
-        variant === 'centered' ? "max-w-xl" : "max-w-xl"
+        "w-full flex gap-0 relative group max-w-xl"
       )}
     >
       <div className="relative flex-1">
