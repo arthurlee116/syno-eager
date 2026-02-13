@@ -1,4 +1,5 @@
-import { type SynonymResponse, type ConnotationResponse } from '@/lib/types';
+import { type SynonymResponse } from './synonymSchema';
+import { type ConnotationResponse } from './connotationSchema';
 import { readErrorMessage, toSearchParams } from '@/lib/http';
 
 const STATUS_MESSAGES: Record<number, string> = {

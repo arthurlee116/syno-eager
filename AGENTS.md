@@ -31,8 +31,8 @@ Syno-Eager 是一个同义词查询 Web 应用，帮助用户快速查找单词�
 | 类别 | 技术 |
 |------|------|
 | 框架 | React 19, TypeScript 5.9 |
-| 构建工具 | Vite (rolldown-vite) |
-| 样式 | Tailwind CSS 4, CSS Modules |
+| 构建工具 | Vite 8 |
+| 样式 | Tailwind CSS 4 |
 | 状态管理 | TanStack React Query |
 | UI 组件 | Radix UI, shadcn/ui, Lucide Icons |
 | 动画 | Framer Motion |
@@ -45,15 +45,18 @@ Syno-Eager 是一个同义词查询 Web 应用，帮助用户快速查找单词�
 ```
 syno-eager/
 ├── api/                    # Vercel Serverless Functions
-│   └── lookup.ts           # 同义词查询 API 端点
+│   ├── lookup.ts           # 同义词查询 API 端点
+│   └── connotation.ts      # 词义色彩分析 API 端点
 ├── src/
 │   ├── components/         # React 组件
-│   │   ├── ui/             # shadcn/ui 基础组件
+│   │   ├── primitives/     # 基础 UI 组件封装
 │   │   ├── SearchBar.tsx   # 搜索输入组件
-│   │   └── ResultsView.tsx # 结果展示组件
+│   │   ├── ResultsView.tsx # 结果展示组件
+│   │   └── ConnotationHovercard.tsx # 同义词词义色彩浮层
 │   ├── hooks/              # 自定义 React Hooks
 │   ├── lib/                # 工具函数和类型定义
-│   │   └── types.ts        # TypeScript 类型
+│   │   ├── synonymSchema.ts      # 同义词响应 Schema/类型
+│   │   └── connotationSchema.ts  # connotation 响应 Schema/类型
 │   ├── test/               # 测试配置和工具
 │   ├── App.tsx             # 主应用组件
 │   └── main.tsx            # 应用入口
@@ -123,10 +126,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 ## 组件开发模式
 
-### shadcn/ui 组件
-- 基础 UI 组件位于 `src/components/ui/`
-- 使用 `class-variance-authority` 定义变体
-- 支持 `className` prop 进行样式扩展
+### 基础组件
+- 基础 UI 组件位于 `src/components/primitives/`
+- 组件支持 `className` prop 进行样式扩展
 
 ### 业务组件
 - 位于 `src/components/` 根目录
@@ -185,7 +187,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 ## 注意事项
 
-1. **不要**修改 `src/components/ui/` 中的 shadcn 基础组件
+1. **不要**随意修改 `src/components/primitives/` 中的基础组件
 2. **不要**在代码中硬编码 API 密钥或敏感信息
 3. **始终**在提交前运行 `pnpm lint` 和 `pnpm test`
 4. **优先**使用现有的工具函数和组件
@@ -202,4 +204,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 ---
 
-*最后更新: 2026-02-08*
+*最后更新: 2026-02-13*

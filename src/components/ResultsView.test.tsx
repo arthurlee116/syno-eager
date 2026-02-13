@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ResultsView } from '@/components/ResultsView';
-import type { SynonymResponse } from '@/lib/types';
+import type { SynonymResponse } from '@/lib/synonymSchema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 const mockData: SynonymResponse = {

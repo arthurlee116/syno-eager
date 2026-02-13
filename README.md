@@ -127,7 +127,7 @@ Make sure the Vercel project has `OPENROUTER_API_KEY` set (Project Settings → 
 
 ## Project Conventions
 
-- Do not edit `src/components/ui/` (reserved for base UI building blocks).
+- Do not edit `src/components/primitives/` (reserved for base UI building blocks).
 - Prefer `@/*` path aliases for `src/*` imports.
 - Treat Zod schemas as the contract:
   - Validate upstream LLM output before returning to the client

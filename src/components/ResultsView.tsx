@@ -1,4 +1,4 @@
-import type { SynonymResponse } from '@/lib/types';
+import type { SynonymResponse } from '@/lib/synonymSchema';
 import { Card, CardContent } from '@/components/primitives/Card';
 import { motion } from 'framer-motion';
 import { useMobile } from '@/hooks/useMobile';

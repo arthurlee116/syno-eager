@@ -1,5 +1,6 @@
 import OpenAI from "openai";
-import type { VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { ZodType } from "zod";
 import { ProxyAgent } from "undici";
 import { jsonrepair } from "jsonrepair";
 
@@ -211,3 +212,63 @@ export function handleApiError(
     upstream_message: upstreamMessage,
   });
 }
+
+
+/**
+ * Shared wrapper that eliminates boilerplate across API handlers:
+ * method check → query parse → API key check → LLM call → JSON parse → Zod validate → respond.
+ */
+export async function handleLLMRequest<TQuery, TResult>(options: {
+  req: VercelRequest;
+  res: VercelResponse;
+  label: string;
+  querySchema: ZodType<TQuery>;
+  resultSchema: ZodType<TResult>;
+  buildParams: (query: TQuery, model: string) => OpenRouterCreateParams;
+}): Promise<void> {
+  const { req, res, label, querySchema, resultSchema, buildParams } = options;
+  let capturedUpstreamErrorBody = "";
+
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  const parsed = querySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "Invalid query parameters",
+      issues: (parsed.error as { issues: { path: (string | number)[]; message: string }[] }).issues.map(
+        (i) => ({ path: i.path.join("."), message: i.message }),
+      ),
+    });
+    return;
+  }
+
+  if (!process.env.OPENROUTER_API_KEY) {
+    res.status(500).json({ error: "Server misconfiguration: Missing API Key" });
+    return;
+  }
+
+  try {
+    const openai = createOpenRouterClient({
+      captureNon2xxBody: (body) => { capturedUpstreamErrorBody = body; },
+    });
+
+    const model = process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
+    const createParams = buildParams(parsed.data, model);
+
+    const completion = await openai.chat.completions.create(
+      createParams as Parameters<typeof openai.chat.completions.create>[0],
+    ) as OpenAI.Chat.Completions.ChatCompletion;
+
+    const rawContent = completion.choices[0]?.message?.content || "";
+    const parsedData = parseJsonFromLLM(rawContent, label);
+    const validated = resultSchema.parse(parsedData);
+
+    res.status(200).json(validated);
+  } catch (error: unknown) {
+    handleApiError(error, res, capturedUpstreamErrorBody, label);
+  }
+}
+

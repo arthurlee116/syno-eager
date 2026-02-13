@@ -1,9 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 import { useConnotationFetch } from "@/hooks/useConnotationFetch";
-import { useMobile } from "@/hooks/useMobile";
-import { useHoverIntent } from "@/hooks/useHoverIntent";
 
 type Synonym = { en: string; zh?: string };
 
@@ -17,36 +15,78 @@ type ConnotationHovercardProps = {
 
 const PANEL_GAP_PX = 8;
 const VIEWPORT_PADDING_PX = 8;
+const OPEN_DELAY = 200;
+const CLOSE_DELAY = 120;
 
 export function ConnotationHovercard(props: ConnotationHovercardProps) {
   const { headword, partOfSpeech, definition, synonym, className } = props;
-  const isMobile = useMobile();
   const contentId = useId();
 
+  const [open, setOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [hintVisible, setHintVisible] = useState(false);
   const [slow, setSlow] = useState(false);
+  
+  const hoverTimer = useRef<number | null>(null);
+  const closeTimer = useRef<number | null>(null);
   const slowTimer = useRef<number | null>(null);
 
-  const {
-    open,
-    pinned,
-    hintVisible,
-    scheduleOpen,
-    scheduleClose,
-    cancelScheduledOpen,
-    cancelScheduledClose,
-    close,
-    onTriggerClick,
-    setOpen,
-  } = useHoverIntent({
-    disabled: isMobile,
-    onClose: () => {
-      setSlow(false);
-      if (slowTimer.current) {
-        window.clearTimeout(slowTimer.current);
-        slowTimer.current = null;
-      }
-    },
-  });
+  const clearTimer = (ref: React.RefObject<number | null>) => {
+    if (ref.current) window.clearTimeout(ref.current);
+    ref.current = null;
+  };
+
+  const close = useCallback(() => {
+    clearTimer(hoverTimer);
+    clearTimer(closeTimer);
+    clearTimer(slowTimer);
+    setOpen(false);
+    setPinned(false);
+    setHintVisible(false);
+    setSlow(false);
+  }, []);
+
+  const scheduleOpen = useCallback(() => {
+    clearTimer(hoverTimer);
+    clearTimer(closeTimer);
+    setHintVisible(true);
+    hoverTimer.current = window.setTimeout(() => {
+      setOpen(true);
+      setHintVisible(false);
+    }, OPEN_DELAY);
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    if (pinned) return;
+    clearTimer(closeTimer);
+    closeTimer.current = window.setTimeout(() => close(), CLOSE_DELAY);
+  }, [pinned, close]);
+
+  useEffect(() => {
+    return () => {
+      clearTimer(hoverTimer);
+      clearTimer(closeTimer);
+      clearTimer(slowTimer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, close]);
+
+  const handleTriggerClick = () => {
+    if (pinned) close();
+    else {
+      setPinned(true);
+      setOpen(true);
+      setHintVisible(false);
+    }
+  };
 
   const params = useMemo(
     () => ({
@@ -90,12 +130,6 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
           border: "border-red-500/30",
           chip: "bg-red-500/10 border-red-500/20",
         };
-      case "mixed":
-        return {
-          overlay: "bg-slate-500/8",
-          border: "border-slate-500/30",
-          chip: "bg-slate-500/10 border-slate-500/20",
-        };
       default:
         return {
           overlay: "bg-slate-500/8",
@@ -105,24 +139,19 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
     }
   })();
 
-  const showPanel = open;
-
   useEffect(() => {
     if (!open || !(isLoading || isFetching)) return;
 
     // If the model/provider is slow (or cold-starting), tell the user we're working.
-    if (slowTimer.current) window.clearTimeout(slowTimer.current);
+    clearTimer(slowTimer);
     slowTimer.current = window.setTimeout(() => setSlow(true), 1200);
 
-    return () => {
-      if (slowTimer.current) window.clearTimeout(slowTimer.current);
-      slowTimer.current = null;
-    };
+    return () => clearTimer(slowTimer);
   }, [open, isLoading, isFetching]);
 
   return (
     <Popover.Root
-      open={showPanel}
+      open={open}
       onOpenChange={(next) => {
         if (!next) close();
         else setOpen(true);
@@ -135,19 +164,18 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
             type="button"
             onMouseEnter={scheduleOpen}
             onMouseLeave={scheduleClose}
-            onClick={onTriggerClick}
+            onClick={handleTriggerClick}
             aria-haspopup="dialog"
-            aria-expanded={showPanel}
+            aria-expanded={open}
             aria-controls={contentId}
             className={cn(
               "inline-flex items-center justify-center w-fit whitespace-nowrap",
               "border px-5 py-2.5 text-lg font-sans font-medium rounded-none",
               "transition-all duration-200",
               "border-border text-muted-foreground",
-              // orange hover intent
               "hover:bg-orange-500 hover:text-white hover:border-orange-500",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              isMobile ? "cursor-pointer" : "cursor-help"
+              "cursor-pointer md:cursor-help"
             )}
           >
             <span>{synonym.en}</span>
@@ -162,7 +190,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
           </button>
         </Popover.Anchor>
 
-        {hintVisible && !showPanel && !isMobile && (
+        {hintVisible && !open && (
           <div
             role="status"
             aria-live="polite"
@@ -171,7 +199,8 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
               "px-3 py-2 w-[min(360px,90vw)]",
               "border border-orange-500/30 bg-background/95 backdrop-blur-sm",
               "shadow-[0_20px_60px_-30px_rgba(0,0,0,0.55)]",
-              "text-xs text-muted-foreground"
+              "text-xs text-muted-foreground",
+              "max-md:hidden"
             )}
           >
             <div className="font-mono">Hover 0.2s to generate connotation…</div>
@@ -180,7 +209,7 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
         )}
       </span>
 
-      {showPanel && (
+      {open && (
         <Popover.Portal>
           <Popover.Content
             id={contentId}
@@ -192,14 +221,12 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
             collisionPadding={VIEWPORT_PADDING_PX}
             style={{ maxHeight: "min(520px, calc(100vh - 32px))" }}
             onMouseEnter={() => {
-              if (!isMobile) {
-                cancelScheduledOpen();
-                cancelScheduledClose();
-                setOpen(true);
-              }
+              clearTimer(hoverTimer);
+              clearTimer(closeTimer);
+              setOpen(true);
             }}
             onMouseLeave={() => {
-              if (!isMobile && !pinned) scheduleClose();
+              if (!pinned) scheduleClose();
             }}
             className={cn(
               "z-50 w-[min(420px,90vw)] overflow-y-auto",

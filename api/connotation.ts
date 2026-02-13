@@ -1,12 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import type OpenAI from "openai";
 import { z } from "zod";
 import { ConnotationResponseSchema } from "../src/lib/connotationSchema.js";
 import {
   type OpenRouterCreateParams,
-  createOpenRouterClient,
-  handleApiError,
-  parseJsonFromLLM,
+  handleLLMRequest,
 } from "../src/server/openrouter.js";
 
 const QuerySchema = z
@@ -18,113 +15,46 @@ const QuerySchema = z
   })
   .strict();
 
+const bilingualField = {
+  type: "object",
+  additionalProperties: false,
+  properties: { en: { type: "string" }, zh: { type: "string" } },
+  required: ["en"],
+} as const;
+
+const connotationSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    headword: { type: "string" },
+    synonym: { type: "string" },
+    partOfSpeech: { type: "string" },
+    definition: { type: "string" },
+    polarity: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
+    register: { type: "string", enum: ["formal", "neutral", "informal"] },
+    toneTags: { type: "array", minItems: 1, maxItems: 6, items: bilingualField },
+    usageNote: bilingualField,
+    cautions: { type: "array", maxItems: 4, items: bilingualField },
+    example: bilingualField,
+  },
+  required: [
+    "headword", "synonym", "partOfSpeech", "definition",
+    "polarity", "register", "toneTags", "usageNote",
+  ],
+} as const;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  let capturedUpstreamErrorBody = "";
-
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
-
-  if (!process.env.OPENROUTER_API_KEY) {
-    return res.status(500).json({ error: "Server misconfiguration: Missing API Key" });
-  }
-
-  const parsed = QuerySchema.safeParse(req.query);
-  if (!parsed.success) {
-    return res.status(400).json({
-      error: "Invalid query parameters",
-      issues: parsed.error.issues.map((i) => ({ path: i.path.join("."), message: i.message })),
-    });
-  }
-
-  const { headword, synonym, partOfSpeech, definition } = parsed.data;
-
-  try {
-    const openai = createOpenRouterClient({
-      captureNon2xxBody: (body) => {
-        capturedUpstreamErrorBody = body;
-      },
-    });
-
-    const model = process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
-
-    const connotationSchema = {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        headword: { type: "string" },
-        synonym: { type: "string" },
-        partOfSpeech: { type: "string" },
-        definition: { type: "string" },
-        polarity: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
-        register: { type: "string", enum: ["formal", "neutral", "informal"] },
-        toneTags: {
-          type: "array",
-          minItems: 1,
-          maxItems: 6,
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              en: { type: "string" },
-              zh: { type: "string" },
-            },
-            required: ["en"],
-          },
-        },
-        usageNote: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            en: { type: "string" },
-            zh: { type: "string" },
-          },
-          required: ["en"],
-        },
-        cautions: {
-          type: "array",
-          maxItems: 4,
-          items: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              en: { type: "string" },
-              zh: { type: "string" },
-            },
-            required: ["en"],
-          },
-        },
-        example: {
-          type: "object",
-          additionalProperties: false,
-          properties: {
-            en: { type: "string" },
-            zh: { type: "string" },
-          },
-          required: ["en"],
-        },
-      },
-      required: [
-        "headword",
-        "synonym",
-        "partOfSpeech",
-        "definition",
-        "polarity",
-        "register",
-        "toneTags",
-        "usageNote",
-      ],
-    };
-
-    const completion = (await openai.chat.completions.create({
+  return handleLLMRequest({
+    req,
+    res,
+    label: "Connotation API",
+    querySchema: QuerySchema,
+    resultSchema: ConnotationResponseSchema,
+    buildParams: ({ headword, synonym, partOfSpeech, definition }, model): OpenRouterCreateParams => ({
       model,
       response_format: {
         type: "json_schema",
-        json_schema: {
-          name: "connotation",
-          strict: true,
-          schema: connotationSchema,
-        },
+        json_schema: { name: "connotation", strict: true, schema: connotationSchema },
       },
       reasoning: { effort: "low", exclude: true },
       messages: [
@@ -149,15 +79,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       ],
       temperature: 0,
-    } as OpenRouterCreateParams)) as OpenAI.Chat.Completions.ChatCompletion;
-
-    const rawContent = completion.choices[0]?.message?.content || "";
-
-    const parsedData = parseJsonFromLLM(rawContent, "Connotation");
-
-    const validated = ConnotationResponseSchema.parse(parsedData);
-    return res.status(200).json(validated);
-  } catch (error: unknown) {
-    return handleApiError(error, res, capturedUpstreamErrorBody, "Connotation API");
-  }
+    }),
+  });
 }
