@@ -17,3 +17,11 @@ Critical learnings from performance optimization work on Syno-Eager.
 **Learning:** Dictionary and connotation results are relatively stable, but cache currently lives in memory only. Reloads will still re-fetch.
 
 **Action:** Current policy uses long `staleTime`/`gcTime` to reduce repeat fetches within a session while keeping memory bounded. Persistent cache is not enabled yet and can be added later if cross-refresh cache retention becomes a product requirement.
+
+---
+
+## 2026-02-12 - Serverless Function Caching for LLM Responses
+
+**Learning:** Vercel Serverless Functions default to `Cache-Control: public, max-age=0, must-revalidate` (or similar) unless specified, meaning expensive LLM calls (OpenAI/OpenRouter) are re-executed for every identical request. Given that word definitions and connotations are effectively static, this is a significant waste of resources and latency.
+
+**Action:** Added `Cache-Control: public, s-maxage=86400, stale-while-revalidate=3600` to `lookup` and `connotation` API routes. This instructs Vercel's Edge Network to cache responses for 24 hours, serving instant responses for repeated queries and reducing LLM costs.
