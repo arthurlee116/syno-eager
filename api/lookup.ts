@@ -169,6 +169,7 @@ export default async function handler(
     // Validate with Zod
     const validatedData = SynonymResponseSchema.parse(parsedData);
 
+    response.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=3600');
     return response.status(200).json(validatedData);
 
   } catch (error: unknown) {
