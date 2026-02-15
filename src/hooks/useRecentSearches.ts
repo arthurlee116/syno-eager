@@ -25,6 +25,10 @@ export function useRecentSearches() {
     if (!lowerWord) return;
 
     setHistory((prev) => {
+      // Optimization: if the word is already at the top, do nothing.
+      if (prev.length > 0 && prev[0] === lowerWord) {
+        return prev;
+      }
       const filtered = prev.filter((w) => w !== lowerWord);
       const newHistory = [lowerWord, ...filtered].slice(0, MAX_HISTORY);
       if (typeof window !== 'undefined') {
