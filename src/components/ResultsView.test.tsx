@@ -2,6 +2,7 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ResultsView } from '@/components/ResultsView';
 import type { SynonymResponse } from '@/lib/synonymSchema';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { usePlainTextCopy } from '@/hooks/usePlainTextCopy';
 
 const mockData: SynonymResponse = {
   word: "serendipity",
@@ -64,6 +65,21 @@ function renderWithQuery(ui: React.ReactElement) {
     },
   });
   return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+}
+
+function CopyEnabledResultsView({ data }: { data: SynonymResponse }) {
+  usePlainTextCopy();
+  return <ResultsView data={data} />;
+}
+
+function createClipboardEvent() {
+  const setData = vi.fn();
+  const event = new Event('copy', { bubbles: true, cancelable: true }) as ClipboardEvent;
+  Object.defineProperty(event, 'clipboardData', {
+    value: { setData },
+    configurable: true,
+  });
+  return { event, setData };
 }
 
 describe('ResultsView', () => {
@@ -136,6 +152,76 @@ describe('ResultsView', () => {
 
     globalThis.fetch = prevFetch;
   },
+    10_000
+  );
+
+  it('copies definition as plain text only', () => {
+    const selectionSpy = vi
+      .spyOn(window, 'getSelection')
+      .mockReturnValue({ toString: () => 'The occurrence of events by chance in a happy way.' } as Selection);
+
+    renderWithQuery(<CopyEnabledResultsView data={mockData} />);
+
+    const definition = screen.getByText('The occurrence of events by chance in a happy way.');
+    const { event, setData } = createClipboardEvent();
+    definition.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(setData).toHaveBeenCalledTimes(1);
+    expect(setData).toHaveBeenCalledWith('text/plain', 'The occurrence of events by chance in a happy way.');
+
+    selectionSpy.mockRestore();
+  });
+
+  it(
+    'copies connotation content as plain text only',
+    async () => {
+      const prevFetch = globalThis.fetch;
+
+      const connotation = {
+        headword: "serendipity",
+        synonym: "chance",
+        partOfSpeech: "noun",
+        definition: "The occurrence of events by chance in a happy way.",
+        polarity: "neutral",
+        register: "neutral",
+        toneTags: [{ en: "casual", zh: "随意" }],
+        usageNote: { en: 'Often feels less "magical" than serendipity.', zh: "通常没有 serendipity 那种“奇妙”的感觉。" },
+        cautions: [{ en: "Can sound plain or accidental.", zh: "可能显得平淡或只是偶然。" }],
+        example: { en: "It was a lucky chance.", zh: "那是一次幸运的偶然。" },
+      };
+
+      globalThis.fetch = vi.fn(async () => {
+        return new Response(JSON.stringify(connotation), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
+
+      renderWithQuery(<CopyEnabledResultsView data={mockData} />);
+      const chanceBtn = screen.getByRole("button", { name: /chance/i });
+      await act(async () => {
+        fireEvent.mouseEnter(chanceBtn);
+        await new Promise((r) => setTimeout(r, 220));
+      });
+
+      await screen.findByText(/Often feels less/i);
+
+      const selectionSpy = vi
+        .spyOn(window, 'getSelection')
+        .mockReturnValue({ toString: () => 'Often feels less "magical" than serendipity.' } as Selection);
+
+      const usageNote = screen.getByText(/Often feels less/i);
+      const { event, setData } = createClipboardEvent();
+      usageNote.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(setData).toHaveBeenCalledTimes(1);
+      expect(setData).toHaveBeenCalledWith('text/plain', 'Often feels less "magical" than serendipity.');
+
+      selectionSpy.mockRestore();
+      globalThis.fetch = prevFetch;
+    },
     10_000
   );
 });

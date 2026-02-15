@@ -6,9 +6,11 @@ import { ResultsView } from '@/components/ResultsView';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePlainTextCopy } from '@/hooks/usePlainTextCopy';
 
 
 function App() {
+  usePlainTextCopy();
   const [word, setWord] = useState<string | null>(null);
   const { data, isLoading, error } = useSynonymFetch(word);
   const { history, addSearch, clearHistory } = useRecentSearches();
