@@ -50,6 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     label: "Connotation API",
     querySchema: QuerySchema,
     resultSchema: ConnotationResponseSchema,
+    cacheControl: "public, s-maxage=86400, stale-while-revalidate=604800",
     buildParams: ({ headword, synonym, partOfSpeech, definition }, model): OpenRouterCreateParams => ({
       model,
       response_format: {
