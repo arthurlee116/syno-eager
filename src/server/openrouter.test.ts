@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { z } from 'zod';
 import {
   extractFirstJsonObject,
   stripCodeFences,
@@ -6,7 +7,22 @@ import {
   getRetryAfterSecondsFrom429,
   getUpstreamStatus,
   getUpstreamMessage,
+  handleLLMRequest,
 } from './openrouter';
+
+// Mock OpenAI
+const mockCreate = vi.fn();
+vi.mock('openai', () => {
+  return {
+    default: class MockOpenAI {
+      chat = {
+        completions: {
+          create: mockCreate,
+        },
+      };
+    },
+  };
+});
 
 describe('extractFirstJsonObject', () => {
   it('extracts a simple JSON object', () => {
@@ -138,5 +154,102 @@ describe('getUpstreamMessage', () => {
 
   it('returns undefined for non-object error', () => {
     expect(getUpstreamMessage(null, '')).toBeUndefined();
+  });
+});
+
+describe('handleLLMRequest', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    process.env = { ...originalEnv, OPENROUTER_API_KEY: 'test-key' };
+    mockCreate.mockReset();
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  const mockReq = (query: Record<string, string> = {}) => ({
+    method: 'GET',
+    query,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
+
+  const mockRes = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = {};
+    res.status = vi.fn().mockReturnValue(res);
+    res.json = vi.fn().mockReturnValue(res);
+    res.setHeader = vi.fn().mockReturnValue(res);
+    return res;
+  };
+
+  const querySchema = z.object({ word: z.string() });
+  const resultSchema = z.object({ result: z.string() });
+
+  it('sets Cache-Control header when configured', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '{"result": "success"}' } }],
+    });
+
+    const req = mockReq({ word: 'test' });
+    const res = mockRes();
+
+    await handleLLMRequest({
+      req,
+      res,
+      label: 'Test',
+      querySchema,
+      resultSchema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      buildParams: () => ({ messages: [] } as any),
+      cacheControl: 'public, max-age=3600',
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ result: 'success' });
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'public, max-age=3600');
+  });
+
+  it('does NOT set Cache-Control header when not configured', async () => {
+    mockCreate.mockResolvedValue({
+      choices: [{ message: { content: '{"result": "success"}' } }],
+    });
+
+    const req = mockReq({ word: 'test' });
+    const res = mockRes();
+
+    await handleLLMRequest({
+      req,
+      res,
+      label: 'Test',
+      querySchema,
+      resultSchema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      buildParams: () => ({ messages: [] } as any),
+    });
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.setHeader).not.toHaveBeenCalledWith('Cache-Control', expect.any(String));
+  });
+
+  it('does NOT set Cache-Control header on error', async () => {
+    mockCreate.mockRejectedValue(new Error('API Error'));
+
+    const req = mockReq({ word: 'test' });
+    const res = mockRes();
+
+    await handleLLMRequest({
+      req,
+      res,
+      label: 'Test',
+      querySchema,
+      resultSchema,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      buildParams: () => ({ messages: [] } as any),
+    });
+
+    expect(res.status).toHaveBeenCalledWith(500); // Default error status
+    expect(res.setHeader).not.toHaveBeenCalledWith('Cache-Control', expect.any(String));
   });
 });

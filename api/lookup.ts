@@ -66,6 +66,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     label: 'Lookup API',
     querySchema: QuerySchema,
     resultSchema: SynonymResponseSchema,
+    cacheControl: 'public, s-maxage=86400, stale-while-revalidate=604800',
     buildParams: ({ word }, model): OpenRouterCreateParams => ({
       model,
       response_format: {
