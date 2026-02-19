@@ -266,6 +266,11 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
     const parsedData = parseJsonFromLLM(rawContent, label);
     const validated = resultSchema.parse(parsedData);
 
+    // Cache immutable results (definitions, synonyms) aggressively.
+    // s-maxage=86400 (24h) for shared edge cache.
+    // stale-while-revalidate=3600 (1h) allows serving old content while refreshing.
+    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=3600");
+
     res.status(200).json(validated);
   } catch (error: unknown) {
     handleApiError(error, res, capturedUpstreamErrorBody, label);
