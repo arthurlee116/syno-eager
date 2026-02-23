@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/primitives/Card';
 import { motion } from 'framer-motion';
 import { useMobile } from '@/hooks/useMobile';
 import { getDynamicFontSize, getDefinitionFontSize } from '@/lib/typography';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, memo } from 'react';
 import { ConnotationHovercard } from '@/components/ConnotationHovercard';
 
 interface ResultsViewProps {
@@ -25,7 +25,20 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+const DefinitionText = memo(({ definition, isMobile }: { definition: string, isMobile: boolean }) => {
+  const fontSize = useMemo(() => isMobile ? getDefinitionFontSize(definition, true) : undefined, [definition, isMobile]);
+  return (
+    <p
+      className="text-2xl md:text-3xl font-display font-medium text-foreground leading-snug"
+      style={fontSize ? { fontSize } : {}}
+    >
+      {definition}
+    </p>
+  );
+});
+DefinitionText.displayName = 'DefinitionText';
+
+function ResultsViewBase({ data }: ResultsViewProps) {
   const isMobile = useMobile();
   const tabs = useMemo(() => data.items.map((i) => i.partOfSpeech), [data.items]);
   const tabIds = useMemo(
@@ -128,12 +141,7 @@ export function ResultsView({ data }: ResultsViewProps) {
                             {(idx + 1).toString().padStart(2, '0')}
                           </span>
                           <div className="space-y-3 flex-1">
-                            <p
-                              className="text-2xl md:text-3xl font-display font-medium text-foreground leading-snug"
-                              style={isMobile ? { fontSize: getDefinitionFontSize(meaning.definition, true) } : {}}
-                            >
-                              {meaning.definition}
-                            </p>
+                            <DefinitionText definition={meaning.definition} isMobile={isMobile} />
                             {meaning.example && (
                               <div className="border-l-2 border-primary/20 pl-4 py-1 space-y-1">
                                 <p className="text-muted-foreground font-sans text-lg">
@@ -174,3 +182,5 @@ export function ResultsView({ data }: ResultsViewProps) {
     </div>
   );
 }
+
+export const ResultsView = memo(ResultsViewBase);
