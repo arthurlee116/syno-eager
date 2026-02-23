@@ -3,6 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { ZodType } from "zod";
 import { ProxyAgent } from "undici";
 import { jsonrepair } from "jsonrepair";
+import { checkIpRateLimit, extractClientIp } from "./rateLimit";
 
 /**
  * Extended create params for OpenRouter, which supports fields beyond the OpenAI SDK types.
@@ -229,8 +230,29 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
   const { req, res, label, querySchema, resultSchema, buildParams } = options;
   let capturedUpstreamErrorBody = "";
 
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method Not Allowed" });
+    return;
+  }
+
+  const ip = extractClientIp(req);
+  const rateLimit = checkIpRateLimit(ip);
+  res.setHeader("X-RateLimit-Limit", String(rateLimit.limit));
+  res.setHeader("X-RateLimit-Remaining", String(rateLimit.remaining));
+  res.setHeader("X-RateLimit-Reset", String(Math.floor(rateLimit.resetAt / 1000)));
+
+  if (!rateLimit.allowed) {
+    res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+    res.status(429).json({ error: "Rate limit exceeded. Max 20 requests per hour per IP." });
     return;
   }
 
@@ -271,4 +293,3 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
     handleApiError(error, res, capturedUpstreamErrorBody, label);
   }
 }
-

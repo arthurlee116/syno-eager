@@ -94,6 +94,11 @@ Optional:
 
 All API routes are implemented as Vercel Serverless Functions under `api/`.
 
+General policy:
+- Auth: no client API key required
+- Rate limit: 20 requests/hour/IP
+- CORS: `Access-Control-Allow-Origin: *`
+
 ### `GET /api/lookup?word=...`
 
 - Query param: `word` (1-80 chars)
@@ -103,6 +108,11 @@ All API routes are implemented as Vercel Serverless Functions under `api/`.
 
 - Used by the synonym hovercards to generate compact connotation guidance on demand
 - Response shape: `src/lib/connotationSchema.ts` (`ConnotationResponseSchema`)
+
+### API Docs Page
+
+- In-app docs: `/#api-docs`
+- Includes ready-to-run examples and one-click **Copy as Markdown**
 
 ## Testing
 
