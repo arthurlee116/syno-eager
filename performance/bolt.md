@@ -17,3 +17,11 @@ Critical learnings from performance optimization work on Syno-Eager.
 **Learning:** Dictionary and connotation results are relatively stable, but cache currently lives in memory only. Reloads will still re-fetch.
 
 **Action:** Current policy uses long `staleTime`/`gcTime` to reduce repeat fetches within a session while keeping memory bounded. Persistent cache is not enabled yet and can be added later if cross-refresh cache retention becomes a product requirement.
+
+---
+
+## 2026-02-09 - Memoization of ResultsView for Post-Fetch Updates
+
+**Learning:** The `App` component updates its search history state immediately after search results arrive. This triggers a full re-render of the `App` and its children, including the expensive `ResultsView`, even though the data hasn't changed.
+
+**Action:** `ResultsView` is now wrapped in `React.memo` to prevent this redundant re-render. Additionally, expensive font size calculations are isolated in a memoized `DefinitionText` sub-component.
