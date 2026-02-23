@@ -9,34 +9,98 @@ const PUBLIC_BASE_URL = 'https://synoyes.vercel.app';
 
 const API_DOCS_MARKDOWN = `# Syno-Eager API
 
-Syno-Eager exposes simple read-only HTTP endpoints for AI tools, scripts, and integrations.
+AI-first reference designed for LLM agents and scripts.
+
+## Quick Contract
 
 - Base URL: \`${PUBLIC_BASE_URL}\`
 - Auth: none (no client API key required)
 - Method: \`GET\`
+- Response format: JSON object
 - Rate limit: **20 requests per hour per IP**
+- Rate-limit headers: \`X-RateLimit-Limit\`, \`X-RateLimit-Remaining\`, \`X-RateLimit-Reset\`, \`Retry-After\`
 
-## 1) Lookup Synonyms
+## Canonical Error Shape
 
-\`GET /api/lookup?word={word}\`
+\`\`\`json
+{
+  "error": "string",
+  "issues": [
+    { "path": "query.field", "message": "validation message" }
+  ],
+  "upstream_status": 500,
+  "upstream_message": "optional upstream detail"
+}
+\`\`\`
 
-### Query Parameters
-- \`word\` (string, required, 1-80 chars): target word to look up
+## OpenAPI 3.1 (Minimal, AI-Friendly)
 
-### cURL Example
+\`\`\`yaml
+openapi: 3.1.0
+info:
+  title: Syno-Eager API
+  version: 1.0.0
+servers:
+  - url: ${PUBLIC_BASE_URL}
+paths:
+  /api/lookup:
+    get:
+      summary: Lookup synonyms and definitions
+      parameters:
+        - in: query
+          name: word
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 80
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid query parameters
+        "429":
+          description: Rate limit exceeded
+  /api/connotation:
+    get:
+      summary: Analyze synonym connotation in one specific sense
+      parameters:
+        - in: query
+          name: headword
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - in: query
+          name: synonym
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - in: query
+          name: partOfSpeech
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 40 }
+        - in: query
+          name: definition
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 400 }
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Invalid query parameters
+        "429":
+          description: Rate limit exceeded
+\`\`\`
+
+## Endpoint: \`GET /api/lookup\`
+
+Required query:
+- \`word\` (string, 1-80)
+
+Example:
 \`\`\`bash
 curl "${PUBLIC_BASE_URL}/api/lookup?word=bright"
 \`\`\`
 
-### JavaScript Example
-\`\`\`js
-const res = await fetch("${PUBLIC_BASE_URL}/api/lookup?word=bright");
-if (!res.ok) throw new Error(await res.text());
-const data = await res.json();
-console.log(data.word, data.items?.length);
-\`\`\`
-
-### Response Example (shortened)
+Success sample:
 \`\`\`json
 {
   "word": "bright",
@@ -56,17 +120,15 @@ console.log(data.word, data.items?.length);
 }
 \`\`\`
 
-## 2) Connotation Analysis
+## Endpoint: \`GET /api/connotation\`
 
-\`GET /api/connotation?headword={headword}&synonym={synonym}&partOfSpeech={pos}&definition={definition}\`
+Required query:
+- \`headword\` (string, 1-80)
+- \`synonym\` (string, 1-80)
+- \`partOfSpeech\` (string, 1-40)
+- \`definition\` (string, 1-400)
 
-### Query Parameters
-- \`headword\` (string, required, 1-80 chars)
-- \`synonym\` (string, required, 1-80 chars)
-- \`partOfSpeech\` (string, required, 1-40 chars)
-- \`definition\` (string, required, 1-400 chars)
-
-### cURL Example
+Example:
 \`\`\`bash
 curl --get "${PUBLIC_BASE_URL}/api/connotation" \\
   --data-urlencode "headword=cheap" \\
@@ -75,21 +137,7 @@ curl --get "${PUBLIC_BASE_URL}/api/connotation" \\
   --data-urlencode "definition=costing little money"
 \`\`\`
 
-### JavaScript Example
-\`\`\`js
-const params = new URLSearchParams({
-  headword: "cheap",
-  synonym: "inexpensive",
-  partOfSpeech: "adjective",
-  definition: "costing little money"
-});
-const res = await fetch("${PUBLIC_BASE_URL}/api/connotation?" + params.toString());
-if (!res.ok) throw new Error(await res.text());
-const data = await res.json();
-console.log(data.polarity, data.register, data.toneTags);
-\`\`\`
-
-### Response Example (shortened)
+Success sample:
 \`\`\`json
 {
   "headword": "cheap",
@@ -98,29 +146,13 @@ console.log(data.polarity, data.register, data.toneTags);
   "definition": "costing little money",
   "polarity": "neutral",
   "register": "neutral",
-  "toneTags": [
-    { "en": "practical", "zh": "务实" }
-  ],
+  "toneTags": [{ "en": "practical", "zh": "务实" }],
   "usageNote": {
     "en": "Inexpensive sounds neutral and product-focused.",
     "zh": "inexpensive 语气中性，更强调商品属性。"
   }
 }
 \`\`\`
-
-## Errors
-
-- \`400\`: invalid query parameters
-- \`405\`: method not allowed
-- \`429\`: rate limit exceeded (check \`Retry-After\`)
-- \`500+\`: upstream or server error
-
-## Rate-Limit Headers
-
-- \`X-RateLimit-Limit\`: max requests in current window
-- \`X-RateLimit-Remaining\`: remaining requests
-- \`X-RateLimit-Reset\`: unix timestamp (seconds) when window resets
-- \`Retry-After\`: seconds to wait when blocked
 `;
 
 async function copyApiDocsMarkdown(markdown: string): Promise<void> {

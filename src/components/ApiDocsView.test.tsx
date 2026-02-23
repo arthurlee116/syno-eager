@@ -6,6 +6,7 @@ describe('ApiDocsView', () => {
   it('renders markdown content with styled code blocks', () => {
     render(<ApiDocsView />);
     expect(screen.getByText('Syno-Eager API')).toBeInTheDocument();
+    expect(screen.getByText(/OpenAPI 3.1/)).toBeInTheDocument();
     expect(screen.getAllByText('BASH').length).toBeGreaterThan(0);
     expect(screen.getAllByText('https://synoyes.vercel.app').length).toBeGreaterThan(0);
   });
@@ -26,7 +27,8 @@ describe('ApiDocsView', () => {
 
     const copiedText = writeText.mock.calls[0][0] as string;
     expect(copiedText).toContain('# Syno-Eager API');
-    expect(copiedText).toContain('GET /api/lookup?word={word}');
+    expect(copiedText).toContain('## OpenAPI 3.1 (Minimal, AI-Friendly)');
+    expect(copiedText).toContain('## Endpoint: `GET /api/lookup`');
     expect(copiedText).toContain('https://synoyes.vercel.app/api/lookup?word=bright');
 
     expect(screen.getByRole('button', { name: /copy as markdown/i })).toHaveTextContent('Copied');
