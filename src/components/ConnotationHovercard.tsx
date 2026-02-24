@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/lib/utils";
 import { useConnotationFetch } from "@/hooks/useConnotationFetch";
@@ -18,7 +18,11 @@ const VIEWPORT_PADDING_PX = 8;
 const OPEN_DELAY = 200;
 const CLOSE_DELAY = 120;
 
-export function ConnotationHovercard(props: ConnotationHovercardProps) {
+/**
+ * Performance: Memoized to prevent re-rendering all hovercards when the parent
+ * ResultsView re-renders for unrelated reasons (e.g. viewport size changes).
+ */
+export const ConnotationHovercard = memo(function ConnotationHovercard(props: ConnotationHovercardProps) {
   const { headword, partOfSpeech, definition, synonym, className } = props;
   const contentId = useId();
 
@@ -380,4 +384,4 @@ export function ConnotationHovercard(props: ConnotationHovercardProps) {
       )}
     </Popover.Root>
   );
-}
+});
