@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/primitives/Card';
 import { motion } from 'framer-motion';
 import { useMobile } from '@/hooks/useMobile';
 import { getDynamicFontSize, getDefinitionFontSize } from '@/lib/typography';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { ConnotationHovercard } from '@/components/ConnotationHovercard';
 
 interface ResultsViewProps {
@@ -25,7 +25,11 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+/**
+ * Performance: Memoized to prevent expensive re-renders when parent App
+ * updates (e.g. search history changes) but synonym data remains stable.
+ */
+export const ResultsView = memo(function ResultsView({ data }: ResultsViewProps) {
   const isMobile = useMobile();
   const tabs = useMemo(() => data.items.map((i) => i.partOfSpeech), [data.items]);
   const tabIds = useMemo(
@@ -173,4 +177,4 @@ export function ResultsView({ data }: ResultsViewProps) {
       </div>
     </div>
   );
-}
+});
