@@ -17,7 +17,7 @@ const ItemSchema = z.object({
 
 const SynonymResponseSchema = z.object({
   word: z.string(),
-  phonetics: z.array(z.string()).optional(),
+  phonetics: z.union([z.array(z.string()), z.string()]).optional(),
   items: z.array(ItemSchema),
 });
 
