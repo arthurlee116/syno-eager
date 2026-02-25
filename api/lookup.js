@@ -102,7 +102,7 @@ export default async function handler(request, response) {
       },
     });
 
-    const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp';
+    const model = process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini';
     const createParamsBase = {
       model,
       messages: [
