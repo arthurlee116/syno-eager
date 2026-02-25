@@ -102,7 +102,7 @@ export default async function handler(request, response) {
       },
     });
 
-    const model = process.env.OPENROUTER_MODEL || 'z-ai/glm-4.7';
+    const model = process.env.OPENROUTER_MODEL || 'google/gemini-2.0-flash-exp';
     const createParamsBase = {
       model,
       messages: [
