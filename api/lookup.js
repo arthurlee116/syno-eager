@@ -1,4 +1,7 @@
-const { z } = require('zod');
+import { z } from 'zod';
+import { ProxyAgent } from 'undici';
+import { jsonrepair } from 'jsonrepair';
+import OpenAI from 'openai';
 
 // Inline schemas
 const MeaningSchema = z.object({
@@ -53,7 +56,7 @@ function getProxyURL() {
          process.env.http_proxy || null;
 }
 
-module.exports = async function handler(request, response) {
+export default async function handler(request, response) {
   let capturedUpstreamErrorBody = '';
 
   if (request.method !== 'GET') {
@@ -71,10 +74,6 @@ module.exports = async function handler(request, response) {
   }
 
   try {
-    const ProxyAgent = require('undici').ProxyAgent;
-    const { jsonrepair } = require('jsonrepair');
-    const OpenAI = require('openai').default || require('openai');
-
     const proxyURL = getProxyURL();
     const dispatcher = proxyURL ? new ProxyAgent(proxyURL) : undefined;
 
@@ -161,4 +160,4 @@ module.exports = async function handler(request, response) {
       upstream_body: capturedUpstreamErrorBody || undefined,
     });
   }
-};
+}
