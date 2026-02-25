@@ -114,7 +114,6 @@ export default async function handler(request, response) {
 
     const createParams = {
       ...createParamsBase,
-      provider: { only: ['cerebras'], allow_fallbacks: false },
     };
 
     const completion = await openai.chat.completions.create(createParams);
