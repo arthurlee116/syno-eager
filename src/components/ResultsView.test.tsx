@@ -75,4 +75,13 @@ describe('ResultsView', () => {
       // Shadcn tabs logic handles visibility, checking if trigger exists implies structure is correct
       expect(verbTab).toBeInTheDocument();
   });
+
+  it('updates when data changes', () => {
+    const { rerender } = render(<ResultsView data={mockData} />);
+    expect(screen.getByText("serendipity")).toBeInTheDocument();
+
+    const newData = { ...mockData, word: "epiphany" };
+    rerender(<ResultsView data={newData} />);
+    expect(screen.getByText("epiphany")).toBeInTheDocument();
+  });
 });

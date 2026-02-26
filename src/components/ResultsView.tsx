@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { SynonymResponse } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,7 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+export const ResultsView = memo(function ResultsView({ data }: ResultsViewProps) {
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
   return (
@@ -114,4 +115,4 @@ export function ResultsView({ data }: ResultsViewProps) {
       </Tabs>
     </div>
   );
-}
+});
