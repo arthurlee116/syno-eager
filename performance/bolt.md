@@ -1,0 +1,3 @@
+## 2024-02-28 - Reference Stability in Custom Hooks
+**Learning:** Functions returned by custom hooks (like `useRecentSearches`) must be wrapped in `useCallback` to ensure reference stability. If they are not, they are recreated on every render of the hook, which can cause unnecessary `useEffect` triggers or re-renders in components that consume them and use them in dependency arrays (like `App.tsx` doing `useEffect(() => { ... addSearch(word); }, [word, addSearch])`).
+**Action:** Always wrap functions returned from custom hooks with `useCallback` unless there's a specific reason not to, especially if those functions are intended to be used in effect dependencies or passed as props to memoized components.
