@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'syno_recent_searches';
 const MAX_HISTORY = 10;
@@ -17,7 +17,11 @@ export function useRecentSearches() {
     }
   }, []);
 
-  const addSearch = (word: string) => {
+  /**
+   * Memoized to ensure reference stability and prevent unnecessary effect triggers
+   * when used in dependency arrays of components consuming this hook.
+   */
+  const addSearch = useCallback((word: string) => {
     const lowerWord = word.toLowerCase().trim();
     if (!lowerWord) return;
 
@@ -27,12 +31,15 @@ export function useRecentSearches() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
       return newHistory;
     });
-  };
+  }, []);
 
-  const clearHistory = () => {
+  /**
+   * Memoized to ensure reference stability.
+   */
+  const clearHistory = useCallback(() => {
     setHistory([]);
     localStorage.removeItem(STORAGE_KEY);
-  };
+  }, []);
 
   return { history, addSearch, clearHistory };
 }
