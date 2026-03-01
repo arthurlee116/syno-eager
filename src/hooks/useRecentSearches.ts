@@ -1,8 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'syno_recent_searches';
 const MAX_HISTORY = 10;
 
+/**
+ * Custom hook to manage recent searches in localStorage.
+ *
+ * ⚡ Bolt Performance Optimization:
+ * Wrapped `addSearch` and `clearHistory` in `useCallback` to ensure reference stability.
+ * This prevents unnecessary re-renders in components (like App.tsx) that use these
+ * functions in dependency arrays of `useEffect` hooks.
+ */
 export function useRecentSearches() {
   const [history, setHistory] = useState<string[]>([]);
 
@@ -17,7 +25,7 @@ export function useRecentSearches() {
     }
   }, []);
 
-  const addSearch = (word: string) => {
+  const addSearch = useCallback((word: string) => {
     const lowerWord = word.toLowerCase().trim();
     if (!lowerWord) return;
 
@@ -27,12 +35,12 @@ export function useRecentSearches() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
       return newHistory;
     });
-  };
+  }, []);
 
-  const clearHistory = () => {
+  const clearHistory = useCallback(() => {
     setHistory([]);
     localStorage.removeItem(STORAGE_KEY);
-  };
+  }, []);
 
   return { history, addSearch, clearHistory };
 }
