@@ -1,3 +1,4 @@
+import React from 'react';
 import type { SynonymResponse } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,13 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+/**
+ * ResultsView is memoized to prevent expensive re-renders and associated
+ * layout recalculations when the parent App component updates (e.g.,
+ * due to useRecentSearches hook updating local storage history)
+ * while the synonym data remains stable.
+ */
+export const ResultsView = React.memo(function ResultsView({ data }: ResultsViewProps) {
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
   return (
@@ -114,4 +121,4 @@ export function ResultsView({ data }: ResultsViewProps) {
       </Tabs>
     </div>
   );
-}
+});
