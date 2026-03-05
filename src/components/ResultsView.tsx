@@ -1,3 +1,4 @@
+import React from 'react';
 import type { SynonymResponse } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,15 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+/**
+ * Performance Optimization:
+ * ResultsView is wrapped in React.memo.
+ * The App component re-renders when the recent searches hook updates localStorage,
+ * which triggers a second render cycle. Since the 'data' prop (search result)
+ * remains stable, React.memo prevents the entire ResultsView DOM tree from re-rendering
+ * unnecessarily, saving compute resources and avoiding layout recalculations.
+ */
+export const ResultsView = React.memo(function ResultsView({ data }: ResultsViewProps) {
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
   return (
@@ -114,4 +123,4 @@ export function ResultsView({ data }: ResultsViewProps) {
       </Tabs>
     </div>
   );
-}
+});
