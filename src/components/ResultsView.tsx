@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 
 interface ResultsViewProps {
   data: SynonymResponse;
@@ -23,7 +24,11 @@ const itemAnim = {
   show: { opacity: 1, y: 0 }
 };
 
-export function ResultsView({ data }: ResultsViewProps) {
+/**
+ * Memoized to prevent unnecessary re-renders when parent App updates
+ * (e.g. from history state updates in useRecentSearches) while synonym data remains stable.
+ */
+export const ResultsView = memo(function ResultsView({ data }: ResultsViewProps) {
   const defaultTab = data.items[0]?.partOfSpeech || 'all';
 
   return (
@@ -114,4 +119,4 @@ export function ResultsView({ data }: ResultsViewProps) {
       </Tabs>
     </div>
   );
-}
+});
