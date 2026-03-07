@@ -1,0 +1,3 @@
+## 2024-03-07 - App Component Double Render Cycle
+**Learning:** The `App` component triggers a second render cycle immediately after search results load because the `useRecentSearches` hook updates the local storage history state. If expensive child components like `ResultsView` (which contains complex typography calculations and framer-motion animations) are not memoized, they will wastefully re-render with the exact same data during this second cycle.
+**Action:** Always wrap heavy data-display components like `ResultsView` in `React.memo` when they are children of orchestrator components (`App`) that manage secondary states (like history or UI toggles) that update independently of the primary data.
