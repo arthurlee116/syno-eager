@@ -1,45 +1,82 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { SynonymResponse } from '@/lib/synonymSchema';
+import {
+  buildRecentSearchEntry,
+  isRecentSearchEntry,
+  normalizeRecentSearchWord,
+  type RecentSearchEntry,
+} from '@/lib/recentSearches';
 
 const STORAGE_KEY = 'syno_recent_searches';
-const MAX_HISTORY = 10;
+
+function parseStoredHistory(stored: string | null): RecentSearchEntry[] {
+  if (!stored) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(stored);
+
+    if (Array.isArray(parsed) && parsed.every(isRecentSearchEntry)) {
+      return parsed;
+    }
+
+    if (Array.isArray(parsed) && parsed.every((entry): entry is string => typeof entry === 'string')) {
+      const now = new Date().toISOString();
+      return parsed
+        .map((word) => word.trim())
+        .filter(Boolean)
+        .map((word) => ({
+          word,
+          queriedAt: now,
+          summary: '',
+          result: {
+            word,
+            items: [],
+          },
+        }));
+    }
+  } catch {
+    // corrupted data, fall through to default
+  }
+
+  return [];
+}
 
 export function useRecentSearches() {
-  const [history, setHistory] = useState<string[]>(() => {
+  const [history, setHistory] = useState<RecentSearchEntry[]>(() => {
     if (typeof window === 'undefined') return [];
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed: unknown = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.every((x): x is string => typeof x === 'string')) {
-          return parsed;
-        }
-      } catch {
-        // corrupted data, fall through to default
-      }
-    }
-    return [];
+    return parseStoredHistory(window.localStorage.getItem(STORAGE_KEY));
   });
 
-  const addSearch = useCallback((word: string) => {
-    const lowerWord = word.toLowerCase().trim();
-    if (!lowerWord) return;
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
 
-    setHistory((prev) => {
-      const filtered = prev.filter((w) => w !== lowerWord);
-      const newHistory = [lowerWord, ...filtered].slice(0, MAX_HISTORY);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
-      }
-      return newHistory;
-    });
+    if (history.length === 0) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  }, [history]);
+
+  const addSearchFromResult = useCallback((data: SynonymResponse) => {
+    const nextEntry = buildRecentSearchEntry(data);
+    const normalizedWord = normalizeRecentSearchWord(nextEntry.word);
+    if (!normalizedWord) return;
+
+    setHistory((prev) => [
+      nextEntry,
+      ...prev.filter((entry) => normalizeRecentSearchWord(entry.word) !== normalizedWord),
+    ]);
+  }, []);
+
+  const removeSearch = useCallback((word: string) => {
+    const normalizedWord = normalizeRecentSearchWord(word);
+    setHistory((prev) => prev.filter((entry) => normalizeRecentSearchWord(entry.word) !== normalizedWord));
   }, []);
 
   const clearHistory = useCallback(() => {
     setHistory([]);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEY);
-    }
   }, []);
 
-  return { history, addSearch, clearHistory };
+  return { history, addSearchFromResult, removeSearch, clearHistory };
 }

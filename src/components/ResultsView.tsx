@@ -42,6 +42,9 @@ export function ResultsView({ data }: ResultsViewProps) {
   const [activeTab, setActiveTab] = useState(() => tabs[0] ?? 'all');
 
   const safeActiveTab = tabs.includes(activeTab) ? activeTab : (tabs[0] ?? 'all');
+  const phonetics = Array.isArray(data.phonetics)
+    ? data.phonetics
+    : (data.phonetics ? [data.phonetics] : []);
 
   const headerFontSize = getDynamicFontSize(data.word, isMobile);
 
@@ -61,9 +64,9 @@ export function ResultsView({ data }: ResultsViewProps) {
           >
             {data.word}
           </h1>
-          {data.phonetics && data.phonetics.length > 0 && (
+          {phonetics.length > 0 && (
             <div className="flex flex-wrap gap-3 font-mono text-muted-foreground text-lg pt-2 md:pt-0">
-              {data.phonetics.map((p, i) => (
+              {phonetics.map((p, i) => (
                 <span key={i} className="">/{p}/</span>
               ))}
             </div>

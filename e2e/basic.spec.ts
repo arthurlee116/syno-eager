@@ -93,3 +93,93 @@ test('opens connotation hovercard and triggers on-demand request', async ({ page
   await expect(page.getByText(/polarity:/i)).toBeVisible();
   await expect(page.getByText(/Good when you want to emphasize randomness/i)).toBeVisible();
 });
+
+test('stores full search history in the right sidebar and reopens prior results', async ({ page }) => {
+  const lookupResponses = {
+    serendipity: {
+      word: 'serendipity',
+      phonetics: ['ˌser.ənˈdɪp.ə.ti'],
+      items: [
+        {
+          partOfSpeech: 'noun',
+          meanings: [
+            {
+              definition: 'The occurrence of events by chance in a happy way.',
+              synonyms: [
+                { en: 'chance', zh: '机会' },
+                { en: 'luck', zh: '运气' },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    luminous: {
+      word: 'luminous',
+      phonetics: ['ˈluː.mɪ.nəs'],
+      items: [
+        {
+          partOfSpeech: 'adjective',
+          meanings: [
+            {
+              definition: 'Giving off light; bright or shining.',
+              synonyms: [
+                { en: 'bright', zh: '明亮的' },
+                { en: 'radiant', zh: '容光焕发的' },
+                { en: 'glowing', zh: '发光的' },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  } as const;
+
+  const lookupRequests: string[] = [];
+
+  await page.route('**/api/lookup?*', async (route) => {
+    const url = new URL(route.request().url());
+    const word = (url.searchParams.get('word') ?? '').toLowerCase();
+    const response = lookupResponses[word as keyof typeof lookupResponses];
+    lookupRequests.push(word);
+
+    if (!response) {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Not found' }),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(response),
+    });
+  });
+
+  await page.goto('/');
+
+  await page.getByPlaceholder('Type a word...').fill('serendipity');
+  await page.getByRole('button', { name: /search/i }).click();
+  await expect(page.getByRole('heading', { name: 'serendipity' })).toBeVisible();
+
+  await page.getByPlaceholder('Type a word...').fill('luminous');
+  await page.getByRole('button', { name: /search/i }).click();
+  await expect(page.getByRole('heading', { name: 'luminous' })).toBeVisible();
+  await expect.poll(() => lookupRequests).toEqual(['serendipity', 'luminous']);
+
+  await page.getByRole('button', { name: /history/i }).click();
+  const historyDialog = page.getByRole('dialog', { name: /all discoveries/i });
+  await expect(historyDialog).toBeVisible();
+  await expect(historyDialog.getByText('serendipity')).toBeVisible();
+  await expect(historyDialog.getByText('luminous')).toBeVisible();
+  await expect(historyDialog.getByText(/1 part of speech · 2 synonyms/i)).toBeVisible();
+  await expect(historyDialog.getByText(/1 part of speech · 3 synonyms/i)).toBeVisible();
+
+  await historyDialog.getByText('serendipity').click();
+  await expect(historyDialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'serendipity' })).toBeVisible();
+  await expect.poll(() => lookupRequests).toEqual(['serendipity', 'luminous']);
+});

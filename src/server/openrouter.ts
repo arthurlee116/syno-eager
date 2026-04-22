@@ -3,7 +3,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { ZodType } from "zod";
 import { ProxyAgent } from "undici";
 import { jsonrepair } from "jsonrepair";
-import { checkIpRateLimit, extractClientIp } from "./rateLimit";
+import { checkIpRateLimit, extractClientIp } from "./rateLimit.js";
 
 /**
  * Extended create params for OpenRouter, which supports fields beyond the OpenAI SDK types.
@@ -277,7 +277,7 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
       captureNon2xxBody: (body) => { capturedUpstreamErrorBody = body; },
     });
 
-    const model = process.env.OPENROUTER_MODEL || "google/gemini-3-flash-preview";
+    const model = process.env.OPENROUTER_MODEL || "inclusionai/ling-2.6-flash:free";
     const createParams = buildParams(parsed.data, model);
 
     const completion = await openai.chat.completions.create(

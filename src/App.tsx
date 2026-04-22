@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSynonymFetch } from '@/hooks/useSynonymFetch';
 import { useRecentSearches } from '@/hooks/useRecentSearches';
 import { SearchBar } from '@/components/SearchBar';
@@ -7,22 +8,27 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlainTextCopy } from '@/hooks/usePlainTextCopy';
-import { ApiDocsView } from '@/components/ApiDocsView';
+import { HistorySidebar } from '@/components/HistorySidebar';
+import { History } from 'lucide-react';
+import type { RecentSearchEntry } from '@/lib/recentSearches';
 
 const DOCS_HASH = '#api-docs';
+const ApiDocsView = lazy(() => import('@/components/ApiDocsView').then((module) => ({ default: module.ApiDocsView })));
 
 function App() {
   usePlainTextCopy();
+  const queryClient = useQueryClient();
   const [word, setWord] = useState<string | null>(null);
   const [hash, setHash] = useState<string>(() => (typeof window === 'undefined' ? '' : window.location.hash));
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const { data, isLoading, error } = useSynonymFetch(word);
-  const { history, addSearch, clearHistory } = useRecentSearches();
+  const { history, addSearchFromResult, removeSearch, clearHistory } = useRecentSearches();
 
   useEffect(() => {
     if (data) {
-      addSearch(data.word);
+      addSearchFromResult(data);
     }
-  }, [data, addSearch]);
+  }, [data, addSearchFromResult]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -34,6 +40,14 @@ function App() {
 
   const handleSearch = (newWord: string) => {
     setWord(newWord);
+  };
+
+  const handleSelectHistory = (entry: RecentSearchEntry) => {
+    setIsHistoryOpen(false);
+    if (entry.result.items.length > 0) {
+      queryClient.setQueryData(['lookup', entry.word], entry.result);
+    }
+    handleSearch(entry.word);
   };
 
   const resetToHome = () => {
@@ -77,10 +91,31 @@ function App() {
                 <div className="w-8 h-8 bg-foreground text-background flex items-center justify-center rounded-none font-serif italic">S</div>
                 <span>Syno-Eager</span>
             </div>
+            {!isApiDocsView && (
+              <Button
+                variant="outline"
+                onClick={() => setIsHistoryOpen(true)}
+                className="rounded-none border-border bg-background/80 px-4 py-2 text-xs uppercase tracking-[0.25em] backdrop-blur-sm"
+              >
+                <History className="h-4 w-4" />
+                <span>History</span>
+                {history.length > 0 && <span className="font-mono text-[11px] text-muted-foreground">{history.length}</span>}
+              </Button>
+            )}
         </header>
 
         {isApiDocsView ? (
-          <ApiDocsView />
+          <Suspense
+            fallback={
+              <div className="flex flex-1 items-center justify-center py-24">
+                <p className="font-display text-xl tracking-[0.2em] uppercase text-muted-foreground">
+                  Loading Docs
+                </p>
+              </div>
+            }
+          >
+            <ApiDocsView />
+          </Suspense>
         ) : (
           <>
             {/* Hero / Search Section */}
@@ -123,32 +158,6 @@ function App() {
                      />
                    </div>
 
-                   <AnimatePresence>
-                    {!hasResults && history.length > 0 && (
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="flex flex-col items-center gap-4 pt-8"
-                        >
-                            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
-                                <span>Recent Discoveries</span>
-                                <button onClick={clearHistory} className="hover:text-primary transition-colors underline decoration-dotted">Clear</button>
-                            </div>
-                            <div className="flex flex-wrap justify-center gap-3">
-                                {history.map((h) => (
-                                <button
-                                    key={h}
-                                    onClick={() => handleSearch(h)}
-                                    className="px-4 py-2 border border-border text-sm font-medium hover:border-primary hover:text-primary transition-all active:scale-95"
-                                >
-                                    {h}
-                                </button>
-                                ))}
-                            </div>
-                        </motion.div>
-                    )}
-                   </AnimatePresence>
                </div>
             </motion.div>
 
@@ -230,6 +239,14 @@ function App() {
         </footer>
 
       </main>
+      <HistorySidebar
+        open={isHistoryOpen && !isApiDocsView}
+        history={history}
+        onOpenChange={setIsHistoryOpen}
+        onSelect={handleSelectHistory}
+        onRemove={removeSearch}
+        onClearAll={clearHistory}
+      />
     </div>
   );
 }

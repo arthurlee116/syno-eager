@@ -84,7 +84,7 @@ Required:
 
 Optional:
 
-- `OPENROUTER_MODEL`: Model id on OpenRouter (default in code: `google/gemini-3-flash-preview`)
+- `OPENROUTER_MODEL`: Model id on OpenRouter (default in code: `inclusionai/ling-2.6-flash:free`)
 - `OPENROUTER_PROXY_URL`: Outbound proxy URL for local development
 - `HTTPS_PROXY` / `HTTP_PROXY` / `https_proxy` / `http_proxy`: Standard proxy envs (also supported)
 - `OPENROUTER_SITE_URL`: Sets OpenRouter `HTTP-Referer` header (defaults to `VERCEL_URL` or `http://localhost`)
