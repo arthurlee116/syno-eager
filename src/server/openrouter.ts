@@ -226,8 +226,9 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
   querySchema: ZodType<TQuery>;
   resultSchema: ZodType<TResult>;
   buildParams: (query: TQuery, model: string) => OpenRouterCreateParams;
+  cacheControl?: string;
 }): Promise<void> {
-  const { req, res, label, querySchema, resultSchema, buildParams } = options;
+  const { req, res, label, querySchema, resultSchema, buildParams, cacheControl } = options;
   let capturedUpstreamErrorBody = "";
 
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -288,6 +289,9 @@ export async function handleLLMRequest<TQuery, TResult>(options: {
     const parsedData = parseJsonFromLLM(rawContent, label);
     const validated = resultSchema.parse(parsedData);
 
+    if (cacheControl) {
+      res.setHeader("Cache-Control", cacheControl);
+    }
     res.status(200).json(validated);
   } catch (error: unknown) {
     handleApiError(error, res, capturedUpstreamErrorBody, label);
