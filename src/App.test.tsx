@@ -116,11 +116,14 @@ describe('App history sidebar', () => {
       </QueryClientProvider>,
     );
 
+    expect(screen.queryByRole('button', { name: /start a new search/i })).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /history/i }));
 
     expect(screen.getByRole('dialog', { name: /all discoveries/i })).toBeInTheDocument();
     expect(screen.getByText('serendipity')).toBeInTheDocument();
     expect(screen.getByText('luminous')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /start a new search/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /remove luminous from history/i }));
     expect(screen.queryByText('luminous')).not.toBeInTheDocument();
@@ -131,8 +134,8 @@ describe('App history sidebar', () => {
       expect(screen.getByText('Showing serendipity')).toBeInTheDocument();
     });
     expect(screen.queryByRole('dialog', { name: /all discoveries/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /start a new search/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /history/i }));
     fireEvent.click(screen.getByRole('button', { name: /start a new search/i }));
 
     expect(screen.queryByRole('dialog', { name: /all discoveries/i })).not.toBeInTheDocument();

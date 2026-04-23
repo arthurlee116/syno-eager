@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { History, Plus, Trash2, X } from 'lucide-react';
+import { History, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/primitives/Button';
 import { cn } from '@/lib/utils';
 import type { RecentSearchEntry } from '@/lib/recentSearches';
@@ -11,7 +11,6 @@ interface HistorySidebarProps {
   history: RecentSearchEntry[];
   onOpenChange: (open: boolean) => void;
   onSelect: (entry: RecentSearchEntry) => void;
-  onNewSearch: () => void;
   onRemove: (word: string) => void;
   onClearAll: () => void;
 }
@@ -21,7 +20,6 @@ export function HistorySidebar({
   history,
   onOpenChange,
   onSelect,
-  onNewSearch,
   onRemove,
   onClearAll,
 }: HistorySidebarProps) {
@@ -147,14 +145,6 @@ export function HistorySidebar({
                             </time>
                           </div>
                         </button>
-                        <Button
-                          variant="outline"
-                          aria-label="Start a new search"
-                          className="min-h-20 w-12 shrink-0 rounded-none border-border p-0 text-muted-foreground hover:text-primary"
-                          onClick={onNewSearch}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
                         <Button
                           variant="outline"
                           aria-label={`Remove ${entry.word} from history`}

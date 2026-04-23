@@ -162,13 +162,20 @@ test('stores full search history in the right sidebar and reopens prior results'
   await page.goto('/');
 
   await page.getByPlaceholder('Type a word...').fill('serendipity');
-  await page.getByRole('button', { name: /search/i }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'serendipity' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /start a new search/i })).toBeVisible();
 
   await page.getByPlaceholder('Type a word...').fill('luminous');
-  await page.getByRole('button', { name: /search/i }).click();
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'luminous' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /start a new search/i })).toBeVisible();
   await expect.poll(() => lookupRequests).toEqual(['serendipity', 'luminous']);
+
+  await page.getByRole('button', { name: /start a new search/i }).click();
+  await expect(page.getByRole('heading', { name: /find the perfect word/i })).toBeVisible();
+  await expect(page.getByPlaceholder('Type a word...')).toHaveValue('');
+  await expect(page.getByRole('button', { name: /start a new search/i })).toBeHidden();
 
   await page.getByRole('button', { name: /history/i }).click();
   const historyDialog = page.getByRole('dialog', { name: /all discoveries/i });
@@ -177,14 +184,7 @@ test('stores full search history in the right sidebar and reopens prior results'
   await expect(historyDialog.getByText('luminous')).toBeVisible();
   await expect(historyDialog.getByText(/1 part of speech · 2 synonyms/i)).toBeVisible();
   await expect(historyDialog.getByText(/1 part of speech · 3 synonyms/i)).toBeVisible();
-
-  await historyDialog.getByRole('button', { name: /start a new search/i }).first().click();
-  await expect(historyDialog).toBeHidden();
-  await expect(page.getByRole('heading', { name: /find the perfect word/i })).toBeVisible();
-  await expect(page.getByPlaceholder('Type a word...')).toHaveValue('');
-
-  await page.getByRole('button', { name: /history/i }).click();
-  await expect(historyDialog).toBeVisible();
+  await expect(historyDialog.getByRole('button', { name: /start a new search/i })).toBeHidden();
 
   await historyDialog.getByText('serendipity').click();
   await expect(historyDialog).toBeHidden();

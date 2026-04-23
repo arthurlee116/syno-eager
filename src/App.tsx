@@ -9,7 +9,7 @@ import { Button } from '@/components/primitives/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePlainTextCopy } from '@/hooks/usePlainTextCopy';
 import { HistorySidebar } from '@/components/HistorySidebar';
-import { History } from 'lucide-react';
+import { History, Plus } from 'lucide-react';
 import type { RecentSearchEntry } from '@/lib/recentSearches';
 
 const DOCS_HASH = '#api-docs';
@@ -57,11 +57,6 @@ function App() {
     }
   };
 
-  const handleNewSearchFromHistory = () => {
-    setIsHistoryOpen(false);
-    resetToHome();
-  };
-
   const hasResults = !!data && !error;
   const isApiDocsView = hash === DOCS_HASH;
 
@@ -88,24 +83,37 @@ function App() {
       <main className="flex-1 flex flex-col w-full max-w-7xl mx-auto px-6 relative z-10">
         
         {/* Persistent Header / Logo Area */}
-        <header className="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-50">
+        <header className="absolute top-0 left-0 z-50 flex w-full items-center justify-between gap-4 p-6">
             <div 
-                className="flex items-center gap-2 font-display font-bold text-xl tracking-tight cursor-pointer hover:text-primary transition-colors"
+                className="min-w-0 flex items-center gap-2 font-display text-lg font-bold tracking-tight cursor-pointer hover:text-primary transition-colors sm:text-xl"
                 onClick={resetToHome}
             >
-                <div className="w-8 h-8 bg-foreground text-background flex items-center justify-center rounded-none font-serif italic">S</div>
-                <span>Syno-Eager</span>
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-foreground font-serif italic text-background">S</div>
+                <span className="truncate">Syno-Eager</span>
             </div>
             {!isApiDocsView && (
-              <Button
-                variant="outline"
-                onClick={() => setIsHistoryOpen(true)}
-                className="rounded-none border-border bg-background/80 px-4 py-2 text-xs uppercase tracking-[0.25em] backdrop-blur-sm"
-              >
-                <History className="h-4 w-4" />
-                <span>History</span>
-                {history.length > 0 && <span className="font-mono text-[11px] text-muted-foreground">{history.length}</span>}
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                {hasResults && (
+                  <Button
+                    variant="outline"
+                    aria-label="Start a new search"
+                    onClick={resetToHome}
+                    className="h-9 w-9 rounded-none border-border bg-background/80 p-0 text-foreground backdrop-blur-sm hover:text-primary"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  aria-label="History"
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="h-9 rounded-none border-border bg-background/80 px-3 py-0 text-xs uppercase tracking-[0.2em] backdrop-blur-sm sm:px-4 sm:tracking-[0.25em]"
+                >
+                  <History className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">History</span>
+                  {history.length > 0 && <span className="font-mono text-[11px] text-muted-foreground">{history.length}</span>}
+                </Button>
+              </div>
             )}
         </header>
 
@@ -249,7 +257,6 @@ function App() {
         history={history}
         onOpenChange={setIsHistoryOpen}
         onSelect={handleSelectHistory}
-        onNewSearch={handleNewSearchFromHistory}
         onRemove={removeSearch}
         onClearAll={clearHistory}
       />
