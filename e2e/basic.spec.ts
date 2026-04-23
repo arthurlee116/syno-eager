@@ -178,6 +178,14 @@ test('stores full search history in the right sidebar and reopens prior results'
   await expect(historyDialog.getByText(/1 part of speech · 2 synonyms/i)).toBeVisible();
   await expect(historyDialog.getByText(/1 part of speech · 3 synonyms/i)).toBeVisible();
 
+  await historyDialog.getByRole('button', { name: /start a new search/i }).first().click();
+  await expect(historyDialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: /find the perfect word/i })).toBeVisible();
+  await expect(page.getByPlaceholder('Type a word...')).toHaveValue('');
+
+  await page.getByRole('button', { name: /history/i }).click();
+  await expect(historyDialog).toBeVisible();
+
   await historyDialog.getByText('serendipity').click();
   await expect(historyDialog).toBeHidden();
   await expect(page.getByRole('heading', { name: 'serendipity' })).toBeVisible();

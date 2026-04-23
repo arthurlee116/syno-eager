@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { History, Trash2, X } from 'lucide-react';
+import { History, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/primitives/Button';
 import { cn } from '@/lib/utils';
 import type { RecentSearchEntry } from '@/lib/recentSearches';
@@ -11,6 +11,7 @@ interface HistorySidebarProps {
   history: RecentSearchEntry[];
   onOpenChange: (open: boolean) => void;
   onSelect: (entry: RecentSearchEntry) => void;
+  onNewSearch: () => void;
   onRemove: (word: string) => void;
   onClearAll: () => void;
 }
@@ -20,6 +21,7 @@ export function HistorySidebar({
   history,
   onOpenChange,
   onSelect,
+  onNewSearch,
   onRemove,
   onClearAll,
 }: HistorySidebarProps) {
@@ -74,7 +76,7 @@ export function HistorySidebar({
             exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 260, damping: 28 }}
           >
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+            <div className="flex flex-col gap-4 border-b border-border px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   <History className="h-4 w-4" />
@@ -89,7 +91,7 @@ export function HistorySidebar({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto">
                 <Button
                   variant="outline"
                   onClick={onClearAll}
@@ -129,26 +131,34 @@ export function HistorySidebar({
                           type="button"
                           onClick={() => onSelect(entry)}
                           className={cn(
-                            'flex-1 border border-border bg-card px-5 py-4 text-left transition-colors hover:border-primary hover:bg-accent/40',
+                            'min-w-0 flex-1 border border-border bg-card px-5 py-4 text-left transition-colors hover:border-primary hover:bg-accent/40',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
                           )}
                         >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-2">
-                              <div className="font-display text-2xl font-medium tracking-tight text-foreground">
+                          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                            <div className="min-w-0 space-y-2">
+                              <div className="break-words font-display text-2xl font-medium tracking-tight text-foreground">
                                 {entry.word}
                               </div>
                               <div className="text-sm text-muted-foreground">{entry.summary || 'Saved search'}</div>
                             </div>
-                            <time className="shrink-0 pt-1 text-right font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                            <time className="shrink-0 self-start pt-1 text-left font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground sm:text-right">
                               {formatRecentSearchTime(entry.queriedAt)}
                             </time>
                           </div>
                         </button>
                         <Button
                           variant="outline"
+                          aria-label="Start a new search"
+                          className="min-h-20 w-12 shrink-0 rounded-none border-border p-0 text-muted-foreground hover:text-primary"
+                          onClick={onNewSearch}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
                           aria-label={`Remove ${entry.word} from history`}
-                          className="rounded-none border-border px-3 text-muted-foreground hover:text-destructive"
+                          className="min-h-20 w-12 shrink-0 rounded-none border-border p-0 text-muted-foreground hover:text-destructive"
                           onClick={() => onRemove(entry.word)}
                         >
                           <Trash2 className="h-4 w-4" />

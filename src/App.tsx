@@ -57,6 +57,11 @@ function App() {
     }
   };
 
+  const handleNewSearchFromHistory = () => {
+    setIsHistoryOpen(false);
+    resetToHome();
+  };
+
   const hasResults = !!data && !error;
   const isApiDocsView = hash === DOCS_HASH;
 
@@ -244,6 +249,7 @@ function App() {
         history={history}
         onOpenChange={setIsHistoryOpen}
         onSelect={handleSelectHistory}
+        onNewSearch={handleNewSearchFromHistory}
         onRemove={removeSearch}
         onClearAll={clearHistory}
       />

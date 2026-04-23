@@ -133,6 +133,14 @@ describe('App history sidebar', () => {
     expect(screen.queryByRole('dialog', { name: /all discoveries/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /history/i }));
+    fireEvent.click(screen.getByRole('button', { name: /start a new search/i }));
+
+    expect(screen.queryByRole('dialog', { name: /all discoveries/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Showing serendipity')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /find the perfect word/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type a word...')).toHaveValue('');
+
+    fireEvent.click(screen.getByRole('button', { name: /history/i }));
     fireEvent.click(screen.getByRole('button', { name: /clear all/i }));
 
     expect(screen.getByText(/history will appear here/i)).toBeInTheDocument();
